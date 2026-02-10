@@ -1,0 +1,144 @@
+import inquirer from 'inquirer';
+
+export async function askBaseQuestions() {
+  return inquirer.prompt([
+    {
+      type: 'input',
+      name: 'url',
+      message: 'Starting page URL:',
+      validate: (v) => {
+        try {
+          new URL(v);
+          return true;
+        } catch {
+          return 'Please enter a valid URL (e.g. https://example.com/concerts)';
+        }
+      },
+    },
+    {
+      type: 'input',
+      name: 'container',
+      message: 'CSS selector for the list container:',
+      validate: (v) => (v.trim() ? true : 'Container selector is required'),
+    },
+    {
+      type: 'input',
+      name: 'item',
+      message: 'CSS selector for each item inside the container:',
+      validate: (v) => (v.trim() ? true : 'Item selector is required'),
+    },
+    {
+      type: 'input',
+      name: 'fields',
+      message: 'Fields to extract (comma-separated name:selector pairs):\n  e.g. title:.title, date:.date, venue:.venue\n ',
+      validate: (v) => {
+        const pairs = v.split(',').map((s) => s.trim()).filter(Boolean);
+        if (!pairs.length) return 'At least one field is required';
+        for (const pair of pairs) {
+          if (!pair.includes(':')) return `Invalid field "${pair}" — expected "name:selector"`;
+        }
+        return true;
+      },
+    },
+  ]);
+}
+
+export async function askPagination() {
+  const { paginate } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'paginate',
+      message: 'Does this page have pagination?',
+      default: false,
+    },
+  ]);
+
+  if (!paginate) return { paginate: false };
+
+  const { strategy } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'strategy',
+      message: 'Pagination strategy:',
+      choices: [
+        { name: 'Follow a "next page" link', value: 'next-link' },
+        { name: 'URL pattern with {page} placeholder', value: 'url-pattern' },
+      ],
+    },
+  ]);
+
+  if (strategy === 'next-link') {
+    const { nextSelector } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'nextSelector',
+        message: 'CSS selector for the "next page" link:',
+        validate: (v) => (v.trim() ? true : 'Selector is required'),
+      },
+    ]);
+    return { paginate: true, strategy, nextSelector };
+  }
+
+  // url-pattern
+  const answers = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'urlTemplate',
+      message: 'URL template with {page} placeholder:\n  e.g. https://example.com/concerts?page={page}\n ',
+      validate: (v) => {
+        if (!v.includes('{page}')) return 'URL must contain {page} placeholder';
+        return true;
+      },
+    },
+    {
+      type: 'number',
+      name: 'maxPages',
+      message: 'Max pages to scrape (0 = no limit):',
+      default: 0,
+    },
+  ]);
+  return { paginate: true, strategy, ...answers };
+}
+
+export async function askOutput() {
+  return inquirer.prompt([
+    {
+      type: 'input',
+      name: 'output',
+      message: 'Output CSV filename:',
+      default: 'output.csv',
+    },
+  ]);
+}
+
+export async function confirmSummary(config) {
+  console.log('\n--- Scrape Configuration ---');
+  console.log(`  URL:        ${config.url}`);
+  console.log(`  Container:  ${config.container}`);
+  console.log(`  Item:       ${config.item}`);
+  console.log(`  Fields:     ${config.fields}`);
+  if (config.paginate) {
+    console.log(`  Pagination: ${config.strategy}`);
+    if (config.strategy === 'next-link') {
+      console.log(`  Next link:  ${config.nextSelector}`);
+    } else {
+      console.log(`  URL pattern: ${config.urlTemplate}`);
+      console.log(`  Max pages:   ${config.maxPages || 'unlimited'}`);
+    }
+  } else {
+    console.log('  Pagination: no');
+  }
+  console.log(`  Output:     ${config.output}`);
+  console.log('----------------------------\n');
+
+  const { confirmed } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'confirmed',
+      message: 'Start scraping?',
+      default: true,
+    },
+  ]);
+
+  return confirmed;
+}
