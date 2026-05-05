@@ -4,7 +4,7 @@ import { dirname, join, resolve, normalize } from 'node:path';
 import { createReadStream, existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 
-import { scrapePage, parseFields } from '../src/scraper.js';
+import { scrapePage, parseFields, isAbortError } from '../src/scraper.js';
 import { paginateByNextLink, paginateByPattern } from '../src/paginator.js';
 import { writeCSV } from '../src/csv.js';
 import { loadScrapeDefaults } from '../cli/loadConfig.js';
@@ -18,7 +18,7 @@ app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
 
 // ─── In-memory job store ───────────────────────────────────────────
-// Each job: { events: Array, listeners: Array<fn>, done: boolean }
+// Each job: { events, listeners, done, controller }
 const jobs = new Map();
 
 function emitToJob(jobId, event) {
@@ -26,7 +26,7 @@ function emitToJob(jobId, event) {
   if (!job) return;
   job.events.push(event);
   for (const send of job.listeners) send(event);
-  if (event.type === 'done' || event.type === 'error') {
+  if (event.type === 'done' || event.type === 'error' || event.type === 'cancelled') {
     job.done = true;
     // Clean up after 10 minutes
     setTimeout(() => jobs.delete(jobId), 10 * 60 * 1000);
@@ -34,29 +34,43 @@ function emitToJob(jobId, event) {
 }
 
 async function runScrape(jobId, { url, container, item, fieldsRaw, paginate, strategy, nextSelector, urlTemplate, maxPages, output }) {
+  const job = jobs.get(jobId);
+  if (!job) return;
+  const { signal } = job.controller;
+
   emitToJob(jobId, { type: 'start' });
 
   const fields = parseFields(fieldsRaw);
   const scrapeOpts = { container, item, fields };
   const onPage = (page, count) => emitToJob(jobId, { type: 'page', page, count });
+  const fetchOpts = { signal };
 
   let items;
   try {
     if (!paginate) {
-      const result = await scrapePage(url, scrapeOpts);
+      const result = await scrapePage(url, scrapeOpts, fetchOpts);
       items = result.items;
       onPage(1, items.length);
     } else if (strategy === 'next-link') {
-      items = await paginateByNextLink(url, nextSelector, scrapeOpts, onPage);
+      items = await paginateByNextLink(url, nextSelector, scrapeOpts, onPage, { signal });
     } else {
-      items = await paginateByPattern(urlTemplate, Number(maxPages) || 0, scrapeOpts, onPage);
+      items = await paginateByPattern(urlTemplate, Number(maxPages) || 0, scrapeOpts, onPage, { signal });
     }
   } catch (err) {
+    if (isAbortError(err)) {
+      emitToJob(jobId, { type: 'cancelled' });
+      return;
+    }
     const status = err.response?.status;
     const msg = status
       ? `HTTP ${status} ${err.response.statusText} — ${url}`
       : err.message;
     emitToJob(jobId, { type: 'error', message: msg });
+    return;
+  }
+
+  if (signal.aborted) {
+    emitToJob(jobId, { type: 'cancelled' });
     return;
   }
 
@@ -110,13 +124,32 @@ app.post('/api/scrape', (req, res) => {
   }
 
   const jobId = randomUUID();
-  jobs.set(jobId, { events: [], listeners: [], done: false });
+  jobs.set(jobId, {
+    events: [],
+    listeners: [],
+    done: false,
+    controller: new AbortController(),
+  });
 
   // Fire-and-forget — errors are routed back through emitToJob
   runScrape(jobId, { url, container, item, fieldsRaw, paginate, strategy, nextSelector, urlTemplate, maxPages, output })
-    .catch(err => emitToJob(jobId, { type: 'error', message: err.message }));
+    .catch((err) => {
+      if (isAbortError(err)) {
+        emitToJob(jobId, { type: 'cancelled' });
+      } else {
+        emitToJob(jobId, { type: 'error', message: err.message });
+      }
+    });
 
   res.json({ jobId });
+});
+
+app.post('/api/scrape/cancel/:jobId', (req, res) => {
+  const job = jobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
+  if (job.done) return res.status(409).json({ error: 'Job already finished.' });
+  job.controller.abort();
+  res.json({ ok: true });
 });
 
 // Step 2: SSE event stream — browser opens this with EventSource
@@ -145,7 +178,7 @@ app.get('/api/scrape/events/:jobId', (req, res) => {
   job.listeners.push(send);
 
   req.on('close', () => {
-    job.listeners = job.listeners.filter(fn => fn !== send);
+    job.listeners = job.listeners.filter((fn) => fn !== send);
   });
 });
 

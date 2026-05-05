@@ -279,6 +279,7 @@
 
     .dialog-title .dot.done { background: var(--success); animation: none; }
     .dialog-title .dot.error { background: var(--error); animation: none; }
+    .dialog-title .dot.cancelled { background: var(--warn); animation: none; }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
@@ -314,6 +315,30 @@
       cursor: not-allowed;
     }
 
+    #dialog-abort-btn {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      background: rgba(251,191,36,0.12);
+      color: var(--warn);
+      border: 1px solid rgba(251,191,36,0.45);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    #dialog-abort-btn.visible { display: inline-flex; }
+    #dialog-abort-btn:hover:not(:disabled) {
+      background: rgba(251,191,36,0.22);
+      border-color: var(--warn);
+    }
+
     /* Log console */
     #log {
       font-family: var(--mono);
@@ -335,6 +360,7 @@
     .log-line.info { color: var(--muted); }
     .log-line.success { color: var(--success); }
     .log-line.error { color: var(--error); }
+    .log-line.warn { color: var(--warn); }
 
     /* Dialog result section */
     #dialog-result {
@@ -550,6 +576,7 @@
       <span id="dialog-title-text">Scraping…</span>
     </div>
     <div class="dialog-actions">
+      <button type="button" id="dialog-abort-btn" title="Stop scraping">Stop</button>
       <button class="icon-btn" id="dialog-minimize-btn" title="Minimise" aria-label="Minimise">—</button>
       <button class="icon-btn" id="dialog-close-btn" title="Close" aria-label="Close" disabled>✕</button>
     </div>
@@ -603,12 +630,18 @@
   const dialogResult = document.getElementById('dialog-result');
   const closeBtnEl   = document.getElementById('dialog-close-btn');
   const minBtnEl     = document.getElementById('dialog-minimize-btn');
+  const abortBtnEl   = document.getElementById('dialog-abort-btn');
   const pill         = document.getElementById('dialog-pill');
   const pillDot      = document.getElementById('pill-dot');
   const pillLabel    = document.getElementById('pill-label');
 
   let lastCsvPath = null;
   let scraping    = false;
+  let activeJobId = null;
+
+  function setAbortVisible(show) {
+    abortBtnEl.classList.toggle('visible', !!show);
+  }
 
   function openDialog() {
     overlay.classList.add('visible');
@@ -644,6 +677,8 @@
     dialogTitle.textContent = 'Scraping…';
     closeBtnEl.disabled = true;
     lastCsvPath = null;
+    setAbortVisible(false);
+    activeJobId = null;
   }
 
   function appendLog(text, cls = 'info') {
@@ -670,8 +705,20 @@
     closeBtnEl.disabled = false;
   }
 
+  function markCancelled() {
+    dialogDot.className = 'dot cancelled';
+    scraping = false;
+    closeBtnEl.disabled = false;
+  }
+
   // ─── Dialog buttons ───────────────────────────────────────────────
   minBtnEl.addEventListener('click', minimizeDialog);
+
+  abortBtnEl.addEventListener('click', () => {
+    if (!activeJobId) return;
+    fetch(`/api/scrape/cancel/${encodeURIComponent(activeJobId)}`, { method: 'POST' })
+      .catch(() => {});
+  });
 
   closeBtnEl.addEventListener('click', () => {
     if (!scraping) closeDialog();
@@ -837,6 +884,9 @@
 
     // Step 2: EventSource → live SSE events
     let esStreamDone = false;
+    activeJobId = jobId;
+    setAbortVisible(true);
+
     const es = new EventSource(`/api/scrape/events/${encodeURIComponent(jobId)}`);
 
     es.onmessage = (e) => {
@@ -852,6 +902,8 @@
       } else if (event.type === 'done') {
         esStreamDone = true;
         es.close();
+        setAbortVisible(false);
+        activeJobId = null;
         btn.disabled = false;
         btn.classList.remove('loading');
         scraping = false;
@@ -875,6 +927,8 @@
       } else if (event.type === 'error') {
         esStreamDone = true;
         es.close();
+        setAbortVisible(false);
+        activeJobId = null;
         btn.disabled = false;
         btn.classList.remove('loading');
         scraping = false;
@@ -883,11 +937,26 @@
         markDone(false);
         pillDot.className = 'pill-dot error';
         pillLabel.textContent = 'Error — click to view';
+
+      } else if (event.type === 'cancelled') {
+        esStreamDone = true;
+        es.close();
+        setAbortVisible(false);
+        activeJobId = null;
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        appendLog('Scrape cancelled. No CSV was written.', 'warn');
+        dialogTitle.textContent = 'Cancelled';
+        markCancelled();
+        pillDot.className = 'pill-dot';
+        pillLabel.textContent = 'Cancelled';
       }
     };
 
     es.onerror = () => {
       es.close();
+      setAbortVisible(false);
+      activeJobId = null;
       btn.disabled = false;
       btn.classList.remove('loading');
       scraping = false;

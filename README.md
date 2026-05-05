@@ -55,12 +55,22 @@ Output: (default) list-YYYY-MM-DD-HH-MM-SS.csv under output/
 
 Result: `output/list-2026-05-05-14-30-45.csv` (timestamp varies) with columns `title`, `date`, `venue`.
 
+## Web GUI
+
+```bash
+npm run gui
+```
+
+Opens a small local server (default [http://localhost:3000](http://localhost:3000)) with the same scrape options as the CLI. Progress streams into a dialog; when finished you can download the CSV from there.
+
+- **Stop:** While a scrape is running, use **Stop** in the dialog header to cancel. The in-flight page request is aborted and pagination stops; **no CSV file is written** for that run. If the job has already finished, **Stop** is no longer available (the server returns 409 for a second cancel).
+
 ## Architecture
 
 The core scraping logic lives in `src/` and has no CLI dependencies — it can be imported directly by a future web app or API:
 
 ```js
-import { scrapePage, parseFields } from './src/scraper.js';
+import { scrapePage, parseFields, isAbortError } from './src/scraper.js';
 import { paginateByNextLink, paginateByPattern } from './src/paginator.js';
 import { toCSV, writeCSV, listTimestampBasename } from './src/csv.js';
 ```

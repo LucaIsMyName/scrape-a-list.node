@@ -1,4 +1,4 @@
-import { scrapePage } from './scraper.js';
+import { scrapePage, isAbortError } from './scraper.js';
 import { createHash } from 'node:crypto';
 
 const HARD_PAGE_LIMIT = 200;
@@ -14,20 +14,24 @@ function hashItems(items) {
  * @param {string} nextSelector - CSS selector for the next-page link
  * @param {object} scrapeOpts - Options passed to scrapePage (container, item, fields)
  * @param {function} [onPage] - Optional callback called with (pageNumber, itemCount) after each page
+ * @param {object} [options]
+ * @param {AbortSignal} [options.signal] - Abort in-flight requests and stop between pages
  * @returns {Promise<object[]>} All items collected across pages
  */
-export async function paginateByNextLink(startUrl, nextSelector, scrapeOpts, onPage) {
+export async function paginateByNextLink(startUrl, nextSelector, scrapeOpts, onPage, options = {}) {
+  const { signal } = options;
   const allItems = [];
   const visitedUrls = new Set();
   let currentUrl = startUrl;
   let page = 1;
 
   while (currentUrl) {
+    if (signal?.aborted) return allItems;
     if (visitedUrls.has(currentUrl)) break;
     if (page > HARD_PAGE_LIMIT) break;
     visitedUrls.add(currentUrl);
 
-    const { items, $ } = await scrapePage(currentUrl, scrapeOpts);
+    const { items, $ } = await scrapePage(currentUrl, scrapeOpts, { signal });
     allItems.push(...items);
 
     if (onPage) onPage(page, items.length);
@@ -61,18 +65,22 @@ export async function paginateByNextLink(startUrl, nextSelector, scrapeOpts, onP
  * @param {number} maxPages - Maximum number of pages to scrape (0 = unlimited)
  * @param {object} scrapeOpts - Options passed to scrapePage (container, item, fields)
  * @param {function} [onPage] - Optional callback called with (pageNumber, itemCount) after each page
+ * @param {object} [options]
+ * @param {AbortSignal} [options.signal] - Abort in-flight requests and stop between pages
  * @returns {Promise<object[]>} All items collected across pages
  */
-export async function paginateByPattern(urlTemplate, maxPages, scrapeOpts, onPage) {
+export async function paginateByPattern(urlTemplate, maxPages, scrapeOpts, onPage, options = {}) {
+  const { signal } = options;
   const allItems = [];
   const seenHashes = new Set();
   let page = 1;
   const limit = maxPages > 0 ? Math.min(maxPages, HARD_PAGE_LIMIT) : HARD_PAGE_LIMIT;
 
   while (page <= limit) {
+    if (signal?.aborted) return allItems;
     const url = urlTemplate.replace('{page}', String(page));
     try {
-      const { items } = await scrapePage(url, scrapeOpts);
+      const { items } = await scrapePage(url, scrapeOpts, { signal });
 
       if (items.length === 0) break;
 
@@ -88,6 +96,7 @@ export async function paginateByPattern(urlTemplate, maxPages, scrapeOpts, onPag
       if (onPage) onPage(page, items.length);
       page++;
     } catch (err) {
+      if (isAbortError(err)) throw err;
       // If we get a 404 or similar, assume we've run out of pages
       if (err.response && err.response.status >= 400) break;
       throw err;

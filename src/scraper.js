@@ -2,6 +2,21 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 
 /**
+ * True if the error came from axios abort / AbortSignal cancellation.
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+export function isAbortError(err) {
+  if (!err || typeof err !== 'object') return false;
+  if (axios.isCancel?.(err)) return true;
+  return (
+    err.code === 'ERR_CANCELED' ||
+    err.name === 'CanceledError' ||
+    err.name === 'AbortError'
+  );
+}
+
+/**
  * Fetches a page and extracts items from it.
  *
  * @param {string} url - The URL to fetch
@@ -9,10 +24,13 @@ import * as cheerio from 'cheerio';
  * @param {string} opts.container - CSS selector for the list container
  * @param {string} opts.item - CSS selector for each item inside the container
  * @param {Array<{name: string, selector: string}>} opts.fields - Fields to extract from each item
+ * @param {object} [reqOpts]
+ * @param {AbortSignal} [reqOpts.signal] - Passed to axios to allow cancellation
  * @returns {Promise<{items: object[], $: cheerio.CheerioAPI}>}
  */
-export async function scrapePage(url, { container, item, fields }) {
+export async function scrapePage(url, { container, item, fields }, { signal } = {}) {
   const { data: html } = await axios.get(url, {
+    signal,
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
