@@ -1,0 +1,11 @@
+{
+  "url": "https://www.diakonie.at/unsere-angebote-und-einrichtungen/liste",
+  "container": ".facility-list",
+  "item": ".card-item ",
+  "fields": "title:.title, subtitle:.subtitle, location:.location",
+  "paginate": true,
+  "strategy": "next-link",
+  "nextSelector": "a.page-link.arrow-next",
+  "urlTemplate": "",
+  "maxPages": 0
+}

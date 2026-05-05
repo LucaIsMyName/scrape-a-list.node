@@ -1,16 +1,26 @@
 import { askBaseQuestions, askPagination, askOutput, confirmSummary } from './prompts.js';
+import { loadScrapeDefaults } from './loadConfig.js';
 import { scrapePage, parseFields } from '../src/scraper.js';
 import { paginateByNextLink, paginateByPattern } from '../src/paginator.js';
-import { writeCSV } from '../src/csv.js';
+import { resolveOutputPath, writeCSV } from '../src/csv.js';
 
 export async function run() {
   console.log('\n  scrape-a-list — CLI Web Scraper\n');
 
-  const base = await askBaseQuestions();
-  const pagination = await askPagination();
-  const { output } = await askOutput();
+  let defaults;
+  try {
+    defaults = loadScrapeDefaults();
+  } catch (err) {
+    console.error(`\n${err.message}\n`);
+    process.exit(1);
+  }
 
-  const config = { ...base, ...pagination, output };
+  const base = await askBaseQuestions(defaults);
+  const pagination = await askPagination(defaults);
+  const { output } = await askOutput(defaults);
+  const outputPath = resolveOutputPath(output);
+
+  const config = { ...base, ...pagination, output: outputPath };
 
   const confirmed = await confirmSummary(config);
   if (!confirmed) {
@@ -50,8 +60,8 @@ export async function run() {
     }
 
     console.log(`\nTotal items scraped: ${items.length}`);
-    await writeCSV(items, config.output);
-    console.log(`CSV written to: ${config.output}\n`);
+    const writtenTo = await writeCSV(items, config.output);
+    console.log(`CSV written to: ${writtenTo}\n`);
   } catch (err) {
     console.error(`\nError: ${err.message}`);
     if (err.response) {

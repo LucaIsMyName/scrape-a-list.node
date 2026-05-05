@@ -1,0 +1,11 @@
+{
+  "url": "https://example.com/concerts",
+  "container": ".event-list",
+  "item": ".event-card",
+  "fields": "title:.event-title, date:.event-date, venue:.event-venue",
+  "paginate": true,
+  "strategy": "next-link",
+  "nextSelector": "a.pagination-next",
+  "urlTemplate": "",
+  "maxPages": 0
+}

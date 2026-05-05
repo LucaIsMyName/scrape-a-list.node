@@ -1,7 +1,7 @@
 {
-  "name": "scrape-a-list",
-  "version": "1.0.0",
-  "description": "CLI web scraper that extracts list items from websites with optional pagination",
+  "name": "scrape-a-list.node",
+  "version": "0.0.1",
+  "description": "CLI web scraper that extracts any list from any website",
   "type": "module",
   "main": "index.js",
   "bin": {
