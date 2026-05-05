@@ -17,8 +17,10 @@
       --muted: #7a7f9a;
       --success: #34d399;
       --error: #f87171;
+      --warn: #fbbf24;
       --radius: 8px;
       --font: 'Inter', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
     }
 
     body {
@@ -96,10 +98,7 @@
       font-family: inherit;
     }
 
-    input:focus, select:focus {
-      border-color: var(--accent);
-    }
-
+    input:focus, select:focus { border-color: var(--accent); }
     input::placeholder { color: var(--muted); opacity: 0.6; }
 
     .hint {
@@ -108,6 +107,7 @@
       margin-top: 0.3rem;
     }
 
+    /* Toggle */
     .toggle-row {
       display: flex;
       align-items: center;
@@ -148,12 +148,11 @@
 
     .toggle input:checked + .slider { background: var(--accent); }
     .toggle input:checked + .slider::before { transform: translateX(16px); }
-
     .toggle-label { font-size: 0.9rem; }
 
+    /* Pagination */
     .pagination-opts { display: none; margin-top: 1.25rem; }
     .pagination-opts.visible { display: block; }
-
     .strategy-pane { display: none; margin-top: 1rem; }
     .strategy-pane.visible { display: block; }
 
@@ -163,6 +162,7 @@
       gap: 1rem;
     }
 
+    /* Scrape button */
     button {
       display: inline-flex;
       align-items: center;
@@ -204,15 +204,156 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    #result { display: none; }
+    /* Inline validation error */
+    #inline-error {
+      display: none;
+      color: var(--error);
+      font-size: 0.875rem;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.25);
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      margin-top: 1rem;
+    }
 
-    .result-header {
+    /* ─── Dialog overlay ─────────────────────────────────── */
+    #dialog-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(2px);
+      z-index: 100;
+    }
+
+    #dialog-overlay.visible { display: block; }
+
+    /* ─── Dialog ─────────────────────────────────────────── */
+    #dialog {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 101;
+      width: min(740px, calc(100vw - 2rem));
+      max-height: calc(100vh - 4rem);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #dialog.visible {
+      display: flex;
+    }
+
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      gap: 1rem;
+    }
+
+    .dialog-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .dialog-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.2s ease-in-out infinite;
+      display: inline-block;
+    }
+
+    .dialog-title .dot.done { background: var(--success); animation: none; }
+    .dialog-title .dot.error { background: var(--error); animation: none; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .dialog-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .icon-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1;
+      border: 1px solid transparent;
+      padding: 0;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .icon-btn:hover:not(:disabled) {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .icon-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    /* Log console */
+    #log {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      line-height: 1.7;
+      padding: 1rem 1.25rem;
+      overflow-y: auto;
+      min-height: 140px;
+      max-height: 260px;
+      background: var(--bg);
+      flex-shrink: 0;
+      color: #a8b3cf;
+    }
+
+    .log-line { white-space: pre; }
+    .log-line.page { color: #a8b3cf; }
+    .log-line.page .log-page-num { color: var(--accent); }
+    .log-line.page .log-count { color: var(--text); }
+    .log-line.info { color: var(--muted); }
+    .log-line.success { color: var(--success); }
+    .log-line.error { color: var(--error); }
+
+    /* Dialog result section */
+    #dialog-result {
+      display: none;
+      flex-direction: column;
+      border-top: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    #dialog-result.visible { display: flex; }
+
+    .result-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 0.75rem;
-      margin-bottom: 1.25rem;
+      padding: 0.9rem 1.25rem;
+      flex-shrink: 0;
     }
 
     .badge {
@@ -226,7 +367,7 @@
     }
 
     .badge.success { background: rgba(52,211,153,0.15); color: var(--success); }
-    .badge.error   { background: rgba(248,113,113,0.15); color: var(--error); }
+    .badge.warn    { background: rgba(251,191,36,0.15); color: var(--warn); }
 
     #download-btn {
       padding: 0.45rem 1rem;
@@ -238,19 +379,21 @@
     #download-btn:hover { background: var(--accent-hover); }
 
     .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
+      overflow: auto;
+      max-height: 280px;
+      border-top: 1px solid var(--border);
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
     }
 
     thead th {
-      background: var(--bg);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
       padding: 0.55rem 0.8rem;
       text-align: left;
       font-weight: 600;
@@ -264,7 +407,7 @@
     tbody td {
       padding: 0.5rem 0.8rem;
       border-bottom: 1px solid var(--border);
-      max-width: 260px;
+      max-width: 220px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -273,21 +416,38 @@
     tbody tr:last-child td { border-bottom: none; }
 
     .table-note {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: var(--muted);
-      margin-top: 0.6rem;
+      padding: 0.45rem 1.25rem 0.75rem;
+      flex-shrink: 0;
     }
 
-    #error-msg {
+    /* ─── Minimised pill ─────────────────────────────────── */
+    #dialog-pill {
       display: none;
-      color: var(--error);
-      font-size: 0.875rem;
-      background: rgba(248,113,113,0.08);
-      border: 1px solid rgba(248,113,113,0.25);
-      border-radius: var(--radius);
-      padding: 0.75rem 1rem;
-      margin-top: 1rem;
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 101;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.45rem 1rem 0.45rem 0.75rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      transition: background 0.15s;
     }
+
+    #dialog-pill.visible { display: flex; }
+    #dialog-pill:hover { background: var(--border); }
+    #dialog-pill .pill-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+    #dialog-pill .pill-dot.error { background: var(--error); }
   </style>
 </head>
 <body>
@@ -376,56 +536,51 @@
     <span class="spinner"></span>
     <span class="btn-label"></span>
   </button>
-
-  <div id="error-msg"></div>
+  <div id="inline-error"></div>
 </div>
 
-<!-- Result card -->
-<div class="card" id="result">
-  <div class="result-header">
-    <div>
-      <div class="card-title" style="margin-bottom:0.2rem">Result</div>
-      <span class="badge success" id="result-badge">✓ 0 items</span>
+<!-- Dialog overlay -->
+<div id="dialog-overlay"></div>
+
+<!-- Progress / result dialog -->
+<div id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title-text">
+  <div class="dialog-header">
+    <div class="dialog-title">
+      <span class="dot" id="dialog-dot"></span>
+      <span id="dialog-title-text">Scraping…</span>
     </div>
-    <button id="download-btn" type="button">⬇ Download CSV</button>
+    <div class="dialog-actions">
+      <button class="icon-btn" id="dialog-minimize-btn" title="Minimise" aria-label="Minimise">—</button>
+      <button class="icon-btn" id="dialog-close-btn" title="Close" aria-label="Close" disabled>✕</button>
+    </div>
   </div>
 
-  <div class="table-wrap">
-    <table id="preview-table">
-      <thead id="preview-head"></thead>
-      <tbody id="preview-body"></tbody>
-    </table>
+  <div id="log" aria-live="polite" aria-label="Scrape log"></div>
+
+  <div id="dialog-result">
+    <div class="result-bar">
+      <span class="badge success" id="result-badge"></span>
+      <button id="download-btn" type="button">⬇ Download CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead id="preview-head"></thead>
+        <tbody id="preview-body"></tbody>
+      </table>
+    </div>
+    <p class="table-note" id="table-note"></p>
   </div>
-  <p class="table-note" id="table-note"></p>
+</div>
+
+<!-- Minimised pill -->
+<div id="dialog-pill" role="button" tabindex="0" aria-label="Reopen last scrape result">
+  <span class="pill-dot" id="pill-dot"></span>
+  <span id="pill-label">Last scrape</span>
+  <span>▲</span>
 </div>
 
 <script>
-  // --- defaults (loaded from scrape.defaults.json via the server) ---
-  async function loadDefaults() {
-    try {
-      const r = await fetch('/api/defaults');
-      if (!r.ok) return;
-      const d = await r.json();
-      if (d.url)          document.getElementById('url').value          = d.url;
-      if (d.container)    document.getElementById('container').value    = d.container;
-      if (d.item)         document.getElementById('item').value         = d.item;
-      if (d.fields)       document.getElementById('fields').value       = d.fields;
-      if (d.output)       document.getElementById('output').value       = d.output;
-      if (d.paginate) {
-        document.getElementById('paginate-toggle').checked = true;
-        updatePaginationUI(true);
-      }
-      if (d.strategy) {
-        document.getElementById('strategy').value = d.strategy;
-        updateStrategyUI(d.strategy);
-      }
-      if (d.nextSelector) document.getElementById('next-selector').value = d.nextSelector;
-      if (d.urlTemplate)  document.getElementById('url-template').value  = d.urlTemplate;
-      if (d.maxPages != null) document.getElementById('max-pages').value = d.maxPages;
-    } catch { /* defaults unavailable — fine */ }
-  }
-
-  // --- pagination UI ---
+  // ─── Pagination UI ────────────────────────────────────────────────
   function updatePaginationUI(on) {
     document.getElementById('pagination-opts').classList.toggle('visible', on);
     if (on) updateStrategyUI(document.getElementById('strategy').value);
@@ -439,26 +594,166 @@
   document.getElementById('paginate-toggle').addEventListener('change', e => updatePaginationUI(e.target.checked));
   document.getElementById('strategy').addEventListener('change', e => updateStrategyUI(e.target.value));
 
-  // --- scrape ---
+  // ─── Dialog helpers ───────────────────────────────────────────────
+  const overlay      = document.getElementById('dialog-overlay');
+  const dialog       = document.getElementById('dialog');
+  const dialogDot    = document.getElementById('dialog-dot');
+  const dialogTitle  = document.getElementById('dialog-title-text');
+  const logEl        = document.getElementById('log');
+  const dialogResult = document.getElementById('dialog-result');
+  const closeBtnEl   = document.getElementById('dialog-close-btn');
+  const minBtnEl     = document.getElementById('dialog-minimize-btn');
+  const pill         = document.getElementById('dialog-pill');
+  const pillDot      = document.getElementById('pill-dot');
+  const pillLabel    = document.getElementById('pill-label');
+
   let lastCsvPath = null;
+  let scraping    = false;
 
+  function openDialog() {
+    overlay.classList.add('visible');
+    dialog.classList.add('visible');
+    pill.classList.remove('visible');
+  }
+
+  function minimizeDialog() {
+    overlay.classList.remove('visible');
+    dialog.classList.remove('visible');
+    pill.classList.add('visible');
+  }
+
+  function closeDialog() {
+    overlay.classList.remove('visible');
+    dialog.classList.remove('visible');
+    pill.classList.remove('visible');
+  }
+
+  function restoreDialog() {
+    pill.classList.remove('visible');
+    overlay.classList.add('visible');
+    dialog.classList.add('visible');
+  }
+
+  function resetDialog() {
+    logEl.innerHTML = '';
+    dialogResult.classList.remove('visible');
+    document.getElementById('preview-head').innerHTML = '';
+    document.getElementById('preview-body').innerHTML = '';
+    document.getElementById('table-note').textContent = '';
+    dialogDot.className = 'dot';
+    dialogTitle.textContent = 'Scraping…';
+    closeBtnEl.disabled = true;
+    lastCsvPath = null;
+  }
+
+  function appendLog(text, cls = 'info') {
+    const line = document.createElement('div');
+    line.className = `log-line ${cls}`;
+    line.textContent = text;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function appendPageLog(page, count) {
+    const line = document.createElement('div');
+    line.className = 'log-line page';
+    line.innerHTML =
+      `  Page <span class="log-page-num">${page}</span>: ` +
+      `<span class="log-count">${count}</span> item${count !== 1 ? 's' : ''}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function markDone(success) {
+    dialogDot.className = `dot ${success ? 'done' : 'error'}`;
+    scraping = false;
+    closeBtnEl.disabled = false;
+  }
+
+  // ─── Dialog buttons ───────────────────────────────────────────────
+  minBtnEl.addEventListener('click', minimizeDialog);
+
+  closeBtnEl.addEventListener('click', () => {
+    if (!scraping) closeDialog();
+  });
+
+  pill.addEventListener('click', restoreDialog);
+  pill.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') restoreDialog(); });
+
+  // Close on overlay click only when not scraping
+  overlay.addEventListener('click', () => { if (!scraping) closeDialog(); });
+
+  // ─── Validation error helper ──────────────────────────────────────
+  function showInlineError(msg) {
+    const el = document.getElementById('inline-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function clearInlineError() {
+    const el = document.getElementById('inline-error');
+    el.style.display = 'none';
+    el.textContent = '';
+  }
+
+  // ─── Result rendering ─────────────────────────────────────────────
+  function renderResult(count, preview, csvPath) {
+    lastCsvPath = csvPath;
+
+    document.getElementById('result-badge').textContent =
+      `✓ ${count} item${count !== 1 ? 's' : ''} scraped`;
+
+    const head = document.getElementById('preview-head');
+    const body = document.getElementById('preview-body');
+
+    if (preview && preview.length) {
+      const cols = Object.keys(preview[0]);
+
+      const tr = document.createElement('tr');
+      cols.forEach(c => {
+        const th = document.createElement('th');
+        th.textContent = c;
+        tr.appendChild(th);
+      });
+      head.appendChild(tr);
+
+      preview.forEach(row => {
+        const tr = document.createElement('tr');
+        cols.forEach(c => {
+          const td = document.createElement('td');
+          td.textContent = row[c] ?? '';
+          td.title = row[c] ?? '';
+          tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      });
+    }
+
+    document.getElementById('table-note').textContent =
+      count > 20 ? `Showing first 20 of ${count} rows.` : '';
+
+    dialogResult.classList.add('visible');
+  }
+
+  document.getElementById('download-btn').addEventListener('click', () => {
+    if (lastCsvPath) {
+      window.location.href = `/api/download?file=${encodeURIComponent(lastCsvPath)}`;
+    }
+  });
+
+  // ─── Main scrape handler ──────────────────────────────────────────
   document.getElementById('scrape-btn').addEventListener('click', async () => {
-    const btn = document.getElementById('scrape-btn');
-    const errEl = document.getElementById('error-msg');
-    const resultEl = document.getElementById('result');
-
-    errEl.style.display = 'none';
-    resultEl.style.display = 'none';
+    clearInlineError();
 
     const paginate = document.getElementById('paginate-toggle').checked;
     const strategy = document.getElementById('strategy').value;
 
     const body = {
-      url:       document.getElementById('url').value.trim(),
-      container: document.getElementById('container').value.trim(),
-      item:      document.getElementById('item').value.trim(),
-      fields:    document.getElementById('fields').value.trim(),
-      output:    document.getElementById('output').value.trim(),
+      url:          document.getElementById('url').value.trim(),
+      container:    document.getElementById('container').value.trim(),
+      item:         document.getElementById('item').value.trim(),
+      fields:       document.getElementById('fields').value.trim(),
+      output:       document.getElementById('output').value.trim(),
       paginate,
       strategy,
       nextSelector: document.getElementById('next-selector').value.trim(),
@@ -466,96 +761,172 @@
       maxPages:     Number(document.getElementById('max-pages').value) || 0,
     };
 
-    // Basic client-side validation
-    if (!body.url) return showError('Please enter a starting page URL.');
-    try { new URL(body.url); } catch { return showError('Please enter a valid URL.'); }
-    if (!body.container) return showError('Container selector is required.');
-    if (!body.item) return showError('Item selector is required.');
-    if (!body.fields) return showError('At least one field is required.');
-    if (paginate && strategy === 'next-link' && !body.nextSelector) return showError('"Next page" selector is required.');
-    if (paginate && strategy === 'url-pattern' && !body.urlTemplate.includes('{page}')) return showError('URL template must contain {page}.');
+    // Client-side validation (shows inline error, not dialog)
+    if (!body.url) return showInlineError('Please enter a starting page URL.');
+    try { new URL(body.url); } catch { return showInlineError('Please enter a valid URL.'); }
+    if (!body.container) return showInlineError('Container selector is required.');
+    if (!body.item)      return showInlineError('Item selector is required.');
+    if (!body.fields)    return showInlineError('At least one field is required.');
+    if (paginate && strategy === 'next-link' && !body.nextSelector)
+      return showInlineError('"Next page" selector is required.');
+    if (paginate && strategy === 'url-pattern' && !body.urlTemplate.includes('{page}'))
+      return showInlineError('URL template must contain {page}.');
 
+    // Open dialog, reset state
+    resetDialog();
+    openDialog();
+    scraping = true;
+
+    const btn = document.getElementById('scrape-btn');
     btn.disabled = true;
     btn.classList.add('loading');
 
+    // Update pill summary for "in progress"
+    pillLabel.textContent = 'Scraping in progress…';
+    pillDot.className = 'pill-dot';
+
+    // Step 1: POST config → receive jobId
+    let jobId;
     try {
-      const res = await fetch('/api/scrape', {
+      const postRes = await fetch('/api/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
-      const data = await res.json();
+      const data = await postRes.json();
 
-      if (!res.ok) {
-        showError(data.error || 'Scraping failed.');
+      if (!postRes.ok) {
+        appendLog('Error: ' + (data.error || 'Unknown error'), 'error');
+        dialogTitle.textContent = 'Error';
+        markDone(false);
+        pillDot.className = 'pill-dot error';
+        pillLabel.textContent = 'Error — click to view';
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        scraping = false;
         return;
       }
 
-      if (data.count === 0) {
-        showError('No items found. Check your selectors and try again.');
+      jobId = data.jobId;
+      if (!jobId || typeof jobId !== 'string') {
+        appendLog(
+          'Server response missing jobId. Stop and restart the GUI server (Ctrl+C, then npm run gui) so it loads the latest gui/server.js.',
+          'error',
+        );
+        dialogTitle.textContent = 'Error';
+        markDone(false);
+        pillDot.className = 'pill-dot error';
+        pillLabel.textContent = 'Error — click to view';
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        scraping = false;
         return;
       }
-
-      lastCsvPath = data.csvPath;
-      renderResult(data);
     } catch (err) {
-      showError('Network error: ' + err.message);
-    } finally {
+      appendLog('Network error: ' + err.message, 'error');
+      dialogTitle.textContent = 'Error';
+      markDone(false);
+      pillDot.className = 'pill-dot error';
+      pillLabel.textContent = 'Error — click to view';
       btn.disabled = false;
       btn.classList.remove('loading');
+      scraping = false;
+      return;
     }
-  });
 
-  function showError(msg) {
-    const el = document.getElementById('error-msg');
-    el.textContent = msg;
-    el.style.display = 'block';
+    // Step 2: EventSource → live SSE events
+    let esStreamDone = false;
+    const es = new EventSource(`/api/scrape/events/${encodeURIComponent(jobId)}`);
+
+    es.onmessage = (e) => {
+      let event;
+      try { event = JSON.parse(e.data); } catch { return; }
+
+      if (event.type === 'start') {
+        appendLog('Starting scrape…', 'info');
+
+      } else if (event.type === 'page') {
+        appendPageLog(event.page, event.count);
+
+      } else if (event.type === 'done') {
+        esStreamDone = true;
+        es.close();
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        scraping = false;
+
+        if (event.count === 0) {
+          appendLog('No items found. Check your selectors and try again.', 'error');
+          dialogTitle.textContent = 'No results';
+          dialogDot.className = 'dot error';
+          closeBtnEl.disabled = false;
+          pillDot.className = 'pill-dot error';
+          pillLabel.textContent = 'No results';
+        } else {
+          appendLog(`Done. Total: ${event.count} item${event.count !== 1 ? 's' : ''}.`, 'success');
+          dialogTitle.textContent = `Done — ${event.count} items`;
+          markDone(true);
+          renderResult(event.count, event.preview, event.csvPath);
+          pillDot.className = 'pill-dot';
+          pillLabel.textContent = `Last scrape: ${event.count} items`;
+        }
+
+      } else if (event.type === 'error') {
+        esStreamDone = true;
+        es.close();
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        scraping = false;
+        appendLog('Error: ' + event.message, 'error');
+        dialogTitle.textContent = 'Error';
+        markDone(false);
+        pillDot.className = 'pill-dot error';
+        pillLabel.textContent = 'Error — click to view';
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      scraping = false;
+      // EventSource fires onerror when the stream ends normally — ignore then
+      if (esStreamDone) return;
+      if (!closeBtnEl.disabled) return;
+      appendLog('Connection lost.', 'error');
+      dialogTitle.textContent = 'Error';
+      markDone(false);
+      pillDot.className = 'pill-dot error';
+      pillLabel.textContent = 'Error — click to view';
+    };
+  }); // end scrape-btn click
+
+  // ─── Load defaults ────────────────────────────────────────────────
+  async function loadDefaults() {
+    try {
+      const r = await fetch('/api/defaults');
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.url)       document.getElementById('url').value       = d.url;
+      if (d.container) document.getElementById('container').value = d.container;
+      if (d.item)      document.getElementById('item').value      = d.item;
+      if (d.fields)    document.getElementById('fields').value    = d.fields;
+      if (d.output)    document.getElementById('output').value    = d.output;
+      if (d.paginate) {
+        document.getElementById('paginate-toggle').checked = true;
+        updatePaginationUI(true);
+      }
+      if (d.strategy) {
+        document.getElementById('strategy').value = d.strategy;
+        updateStrategyUI(d.strategy);
+      }
+      if (d.nextSelector) document.getElementById('next-selector').value = d.nextSelector;
+      if (d.urlTemplate)  document.getElementById('url-template').value  = d.urlTemplate;
+      if (d.maxPages != null) document.getElementById('max-pages').value = d.maxPages;
+    } catch { /* no defaults available */ }
   }
 
-  function renderResult({ count, preview, csvPath }) {
-    document.getElementById('result-badge').textContent = `✓ ${count} item${count !== 1 ? 's' : ''} scraped`;
-
-    const head = document.getElementById('preview-head');
-    const body = document.getElementById('preview-body');
-    head.innerHTML = '';
-    body.innerHTML = '';
-
-    if (!preview || !preview.length) return;
-
-    const cols = Object.keys(preview[0]);
-
-    const tr = document.createElement('tr');
-    cols.forEach(c => {
-      const th = document.createElement('th');
-      th.textContent = c;
-      tr.appendChild(th);
-    });
-    head.appendChild(tr);
-
-    preview.forEach(row => {
-      const tr = document.createElement('tr');
-      cols.forEach(c => {
-        const td = document.createElement('td');
-        td.textContent = row[c] ?? '';
-        td.title = row[c] ?? '';
-        tr.appendChild(td);
-      });
-      body.appendChild(tr);
-    });
-
-    const note = document.getElementById('table-note');
-    note.textContent = count > 20 ? `Showing first 20 of ${count} rows.` : '';
-
-    document.getElementById('result').style.display = 'block';
-  }
-
-  document.getElementById('download-btn').addEventListener('click', () => {
-    if (!lastCsvPath) return;
-    window.location.href = `/api/download?file=${encodeURIComponent(lastCsvPath)}`;
-  });
-
-  // --- init ---
   loadDefaults();
 </script>
 </body>

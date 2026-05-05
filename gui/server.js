@@ -2,10 +2,11 @@ import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, normalize } from 'node:path';
 import { createReadStream, existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 
 import { scrapePage, parseFields } from '../src/scraper.js';
 import { paginateByNextLink, paginateByPattern } from '../src/paginator.js';
-import { resolveOutputPath, writeCSV } from '../src/csv.js';
+import { writeCSV } from '../src/csv.js';
 import { loadScrapeDefaults } from '../cli/loadConfig.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -15,6 +16,60 @@ const OUTPUT_DIR = resolve(__dirname, '..', 'output');
 const app = express();
 app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
+
+// ─── In-memory job store ───────────────────────────────────────────
+// Each job: { events: Array, listeners: Array<fn>, done: boolean }
+const jobs = new Map();
+
+function emitToJob(jobId, event) {
+  const job = jobs.get(jobId);
+  if (!job) return;
+  job.events.push(event);
+  for (const send of job.listeners) send(event);
+  if (event.type === 'done' || event.type === 'error') {
+    job.done = true;
+    // Clean up after 10 minutes
+    setTimeout(() => jobs.delete(jobId), 10 * 60 * 1000);
+  }
+}
+
+async function runScrape(jobId, { url, container, item, fieldsRaw, paginate, strategy, nextSelector, urlTemplate, maxPages, output }) {
+  emitToJob(jobId, { type: 'start' });
+
+  const fields = parseFields(fieldsRaw);
+  const scrapeOpts = { container, item, fields };
+  const onPage = (page, count) => emitToJob(jobId, { type: 'page', page, count });
+
+  let items;
+  try {
+    if (!paginate) {
+      const result = await scrapePage(url, scrapeOpts);
+      items = result.items;
+      onPage(1, items.length);
+    } else if (strategy === 'next-link') {
+      items = await paginateByNextLink(url, nextSelector, scrapeOpts, onPage);
+    } else {
+      items = await paginateByPattern(urlTemplate, Number(maxPages) || 0, scrapeOpts, onPage);
+    }
+  } catch (err) {
+    const status = err.response?.status;
+    const msg = status
+      ? `HTTP ${status} ${err.response.statusText} — ${url}`
+      : err.message;
+    emitToJob(jobId, { type: 'error', message: msg });
+    return;
+  }
+
+  if (!items.length) {
+    emitToJob(jobId, { type: 'done', count: 0, preview: [], csvPath: null });
+    return;
+  }
+
+  const csvPath = await writeCSV(items, output || '');
+  emitToJob(jobId, { type: 'done', count: items.length, preview: items.slice(0, 20), csvPath });
+}
+
+// ─── Routes ───────────────────────────────────────────────────────
 
 app.get('/', (_req, res) => {
   res.sendFile(join(PUBLIC_DIR, 'index.html'));
@@ -29,7 +84,8 @@ app.get('/api/defaults', (_req, res) => {
   }
 });
 
-app.post('/api/scrape', async (req, res) => {
+// Step 1: validate config, create job, kick off scraping in background
+app.post('/api/scrape', (req, res) => {
   const {
     url,
     container,
@@ -53,37 +109,43 @@ app.post('/api/scrape', async (req, res) => {
     return res.status(400).json({ error: 'Invalid URL.' });
   }
 
-  const fields = parseFields(fieldsRaw);
-  const scrapeOpts = { container, item, fields };
+  const jobId = randomUUID();
+  jobs.set(jobId, { events: [], listeners: [], done: false });
 
-  let items;
-  try {
-    if (!paginate) {
-      const result = await scrapePage(url, scrapeOpts);
-      items = result.items;
-    } else if (strategy === 'next-link') {
-      items = await paginateByNextLink(url, nextSelector, scrapeOpts);
-    } else {
-      items = await paginateByPattern(urlTemplate, Number(maxPages) || 0, scrapeOpts);
-    }
-  } catch (err) {
-    const status = err.response?.status;
-    const msg = status
-      ? `HTTP ${status} ${err.response.statusText} — ${url}`
-      : err.message;
-    return res.status(502).json({ error: msg });
+  // Fire-and-forget — errors are routed back through emitToJob
+  runScrape(jobId, { url, container, item, fieldsRaw, paginate, strategy, nextSelector, urlTemplate, maxPages, output })
+    .catch(err => emitToJob(jobId, { type: 'error', message: err.message }));
+
+  res.json({ jobId });
+});
+
+// Step 2: SSE event stream — browser opens this with EventSource
+app.get('/api/scrape/events/:jobId', (req, res) => {
+  const job = jobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const send = (event) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+  };
+
+  // Replay any events that fired before the client connected
+  for (const event of job.events) send(event);
+
+  if (job.done) {
+    res.end();
+    return;
   }
 
-  if (!items.length) {
-    return res.json({ count: 0, items: [], csvPath: null });
-  }
+  // Subscribe to future events
+  job.listeners.push(send);
 
-  const csvPath = await writeCSV(items, output || '');
-
-  res.json({
-    count: items.length,
-    preview: items.slice(0, 20),
-    csvPath,
+  req.on('close', () => {
+    job.listeners = job.listeners.filter(fn => fn !== send);
   });
 });
 
