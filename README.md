@@ -22,7 +22,7 @@ Interactive prompts are **prefilled** from [`scrape.defaults.json`](scrape.defau
 
 - **Template:** [`scrape.defaults.example.json`](scrape.defaults.example.json) has the same shape; copy it to `scrape.defaults.json` if you start from a clone without defaults.
 - **Keys:** `url`, `container`, `item`, `fields`, `output` (optional; see below), `paginate` (boolean), `strategy` (`"next-link"` or `"url-pattern"`), `nextSelector`, `urlTemplate`, `maxPages` (number; `0` means no limit for URL-pattern pagination).
-- **Output name:** Omit `output`, set it to `""`, or accept the prompt default to use an automatic name `list-YYYY-MM-DD-HH-MM-SS.csv` (local time). Files are written under `output/` unless you use an `output/...` or absolute path. Set `output` to a non-empty string (e.g. `concerts.csv`) to use a fixed basename instead.
+- **Output name:** Omit `output`, set it to `""`, or accept the prompt default to use an automatic name `list-YYYY-MM-DD-HH:MM:SS.csv` (local time). Files are written under `output/` unless you use an `output/...` or absolute path. Set `output` to a non-empty string (e.g. `concerts.csv`) to use a fixed basename instead.
 - **Missing file:** If `scrape.defaults.json` is absent, the CLI warns and uses empty defaults; the default output name is still a fresh `list-YYYY-MM-DD-HH-MM-SS.csv`.
 - **Invalid JSON:** The CLI exits with an error and the path to the file.
 - **Sensitive URLs:** If a default URL should not be committed, add `scrape.defaults.json` to `.gitignore` and keep a private copy locally, or maintain a private overlay workflow outside this repo.

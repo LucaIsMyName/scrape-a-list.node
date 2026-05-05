@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scrape-a-list</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2e3e;
+      --accent: #6c63ff;
+      --accent-hover: #8078ff;
+      --text: #e2e4f0;
+      --muted: #7a7f9a;
+      --success: #34d399;
+      --error: #f87171;
+      --radius: 8px;
+      --font: 'Inter', system-ui, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem 4rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      color: var(--muted);
+      margin-top: 0.4rem;
+      font-size: 0.9rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem 2rem;
+      width: 100%;
+      max-width: 680px;
+    }
+
+    .card + .card { margin-top: 1.25rem; }
+
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+    }
+
+    .field { margin-bottom: 1.1rem; }
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="number"],
+    select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 0.9rem;
+      padding: 0.55rem 0.75rem;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+    }
+
+    input::placeholder { color: var(--muted); opacity: 0.6; }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle {
+      position: relative;
+      width: 38px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 999px;
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      top: 3px;
+      background: var(--text);
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle input:checked + .slider { background: var(--accent); }
+    .toggle input:checked + .slider::before { transform: translateX(16px); }
+
+    .toggle-label { font-size: 0.9rem; }
+
+    .pagination-opts { display: none; margin-top: 1.25rem; }
+    .pagination-opts.visible { display: block; }
+
+    .strategy-pane { display: none; margin-top: 1rem; }
+    .strategy-pane.visible { display: block; }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    #scrape-btn {
+      width: 100%;
+      padding: 0.7rem 1.25rem;
+      background: var(--accent);
+      color: #fff;
+      margin-top: 1.5rem;
+    }
+
+    #scrape-btn:hover:not(:disabled) { background: var(--accent-hover); }
+    #scrape-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #scrape-btn .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    #scrape-btn.loading .spinner { display: block; }
+    #scrape-btn.loading .btn-label::after { content: 'Scraping…'; }
+    #scrape-btn:not(.loading) .btn-label::after { content: 'Scrape'; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #result { display: none; }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
+    }
+
+    .badge.success { background: rgba(52,211,153,0.15); color: var(--success); }
+    .badge.error   { background: rgba(248,113,113,0.15); color: var(--error); }
+
+    #download-btn {
+      padding: 0.45rem 1rem;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.82rem;
+    }
+
+    #download-btn:hover { background: var(--accent-hover); }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    thead th {
+      background: var(--bg);
+      padding: 0.55rem 0.8rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+    tbody td {
+      padding: 0.5rem 0.8rem;
+      border-bottom: 1px solid var(--border);
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    .table-note {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.6rem;
+    }
+
+    #error-msg {
+      display: none;
+      color: var(--error);
+      font-size: 0.875rem;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.25);
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>scrape-a-list</h1>
+  <p>Extract any list from any website and export it as CSV</p>
+</header>
+
+<!-- Config card -->
+<div class="card">
+  <div class="card-title">Configuration</div>
+
+  <div class="field">
+    <label for="url">Starting page URL</label>
+    <input type="url" id="url" placeholder="https://example.com/concerts" />
+  </div>
+
+  <div class="row-2">
+    <div class="field">
+      <label for="container">List container selector</label>
+      <input type="text" id="container" placeholder=".event-list" />
+    </div>
+    <div class="field">
+      <label for="item">Item selector</label>
+      <input type="text" id="item" placeholder=".event-card" />
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="fields">Fields <span style="font-weight:400">(name:selector pairs, comma-separated)</span></label>
+    <input type="text" id="fields" placeholder="title:.event-title, date:.event-date, venue:.event-venue" />
+    <p class="hint">Example: <code>title:.title, date:.date, venue:.venue</code></p>
+  </div>
+
+  <div class="field">
+    <label for="output">Output filename <span style="font-weight:400">(optional — auto-named if blank)</span></label>
+    <input type="text" id="output" placeholder="results.csv" />
+  </div>
+</div>
+
+<!-- Pagination card -->
+<div class="card">
+  <div class="card-title">Pagination</div>
+
+  <label class="toggle-row" for="paginate-toggle">
+    <span class="toggle">
+      <input type="checkbox" id="paginate-toggle" />
+      <span class="slider"></span>
+    </span>
+    <span class="toggle-label">This list spans multiple pages</span>
+  </label>
+
+  <div class="pagination-opts" id="pagination-opts">
+    <div class="field">
+      <label for="strategy">Strategy</label>
+      <select id="strategy">
+        <option value="next-link">Follow a "next page" link</option>
+        <option value="url-pattern">URL pattern with {page} placeholder</option>
+      </select>
+    </div>
+
+    <div class="strategy-pane" id="pane-next-link">
+      <div class="field">
+        <label for="next-selector">CSS selector for the "next page" link</label>
+        <input type="text" id="next-selector" placeholder="a.pagination-next" />
+      </div>
+    </div>
+
+    <div class="strategy-pane" id="pane-url-pattern">
+      <div class="field">
+        <label for="url-template">URL template</label>
+        <input type="text" id="url-template" placeholder="https://example.com/concerts?page={page}" />
+        <p class="hint">Must contain <code>{page}</code></p>
+      </div>
+      <div class="field" style="max-width:160px">
+        <label for="max-pages">Max pages <span style="font-weight:400">(0 = no limit)</span></label>
+        <input type="number" id="max-pages" value="0" min="0" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="width:100%;max-width:680px">
+  <button id="scrape-btn" type="button">
+    <span class="spinner"></span>
+    <span class="btn-label"></span>
+  </button>
+
+  <div id="error-msg"></div>
+</div>
+
+<!-- Result card -->
+<div class="card" id="result">
+  <div class="result-header">
+    <div>
+      <div class="card-title" style="margin-bottom:0.2rem">Result</div>
+      <span class="badge success" id="result-badge">✓ 0 items</span>
+    </div>
+    <button id="download-btn" type="button">⬇ Download CSV</button>
+  </div>
+
+  <div class="table-wrap">
+    <table id="preview-table">
+      <thead id="preview-head"></thead>
+      <tbody id="preview-body"></tbody>
+    </table>
+  </div>
+  <p class="table-note" id="table-note"></p>
+</div>
+
+<script>
+  // --- defaults (loaded from scrape.defaults.json via the server) ---
+  async function loadDefaults() {
+    try {
+      const r = await fetch('/api/defaults');
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.url)          document.getElementById('url').value          = d.url;
+      if (d.container)    document.getElementById('container').value    = d.container;
+      if (d.item)         document.getElementById('item').value         = d.item;
+      if (d.fields)       document.getElementById('fields').value       = d.fields;
+      if (d.output)       document.getElementById('output').value       = d.output;
+      if (d.paginate) {
+        document.getElementById('paginate-toggle').checked = true;
+        updatePaginationUI(true);
+      }
+      if (d.strategy) {
+        document.getElementById('strategy').value = d.strategy;
+        updateStrategyUI(d.strategy);
+      }
+      if (d.nextSelector) document.getElementById('next-selector').value = d.nextSelector;
+      if (d.urlTemplate)  document.getElementById('url-template').value  = d.urlTemplate;
+      if (d.maxPages != null) document.getElementById('max-pages').value = d.maxPages;
+    } catch { /* defaults unavailable — fine */ }
+  }
+
+  // --- pagination UI ---
+  function updatePaginationUI(on) {
+    document.getElementById('pagination-opts').classList.toggle('visible', on);
+    if (on) updateStrategyUI(document.getElementById('strategy').value);
+  }
+
+  function updateStrategyUI(val) {
+    document.getElementById('pane-next-link').classList.toggle('visible', val === 'next-link');
+    document.getElementById('pane-url-pattern').classList.toggle('visible', val === 'url-pattern');
+  }
+
+  document.getElementById('paginate-toggle').addEventListener('change', e => updatePaginationUI(e.target.checked));
+  document.getElementById('strategy').addEventListener('change', e => updateStrategyUI(e.target.value));
+
+  // --- scrape ---
+  let lastCsvPath = null;
+
+  document.getElementById('scrape-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('scrape-btn');
+    const errEl = document.getElementById('error-msg');
+    const resultEl = document.getElementById('result');
+
+    errEl.style.display = 'none';
+    resultEl.style.display = 'none';
+
+    const paginate = document.getElementById('paginate-toggle').checked;
+    const strategy = document.getElementById('strategy').value;
+
+    const body = {
+      url:       document.getElementById('url').value.trim(),
+      container: document.getElementById('container').value.trim(),
+      item:      document.getElementById('item').value.trim(),
+      fields:    document.getElementById('fields').value.trim(),
+      output:    document.getElementById('output').value.trim(),
+      paginate,
+      strategy,
+      nextSelector: document.getElementById('next-selector').value.trim(),
+      urlTemplate:  document.getElementById('url-template').value.trim(),
+      maxPages:     Number(document.getElementById('max-pages').value) || 0,
+    };
+
+    // Basic client-side validation
+    if (!body.url) return showError('Please enter a starting page URL.');
+    try { new URL(body.url); } catch { return showError('Please enter a valid URL.'); }
+    if (!body.container) return showError('Container selector is required.');
+    if (!body.item) return showError('Item selector is required.');
+    if (!body.fields) return showError('At least one field is required.');
+    if (paginate && strategy === 'next-link' && !body.nextSelector) return showError('"Next page" selector is required.');
+    if (paginate && strategy === 'url-pattern' && !body.urlTemplate.includes('{page}')) return showError('URL template must contain {page}.');
+
+    btn.disabled = true;
+    btn.classList.add('loading');
+
+    try {
+      const res = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || 'Scraping failed.');
+        return;
+      }
+
+      if (data.count === 0) {
+        showError('No items found. Check your selectors and try again.');
+        return;
+      }
+
+      lastCsvPath = data.csvPath;
+      renderResult(data);
+    } catch (err) {
+      showError('Network error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  });
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function renderResult({ count, preview, csvPath }) {
+    document.getElementById('result-badge').textContent = `✓ ${count} item${count !== 1 ? 's' : ''} scraped`;
+
+    const head = document.getElementById('preview-head');
+    const body = document.getElementById('preview-body');
+    head.innerHTML = '';
+    body.innerHTML = '';
+
+    if (!preview || !preview.length) return;
+
+    const cols = Object.keys(preview[0]);
+
+    const tr = document.createElement('tr');
+    cols.forEach(c => {
+      const th = document.createElement('th');
+      th.textContent = c;
+      tr.appendChild(th);
+    });
+    head.appendChild(tr);
+
+    preview.forEach(row => {
+      const tr = document.createElement('tr');
+      cols.forEach(c => {
+        const td = document.createElement('td');
+        td.textContent = row[c] ?? '';
+        td.title = row[c] ?? '';
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+
+    const note = document.getElementById('table-note');
+    note.textContent = count > 20 ? `Showing first 20 of ${count} rows.` : '';
+
+    document.getElementById('result').style.display = 'block';
+  }
+
+  document.getElementById('download-btn').addEventListener('click', () => {
+    if (!lastCsvPath) return;
+    window.location.href = `/api/download?file=${encodeURIComponent(lastCsvPath)}`;
+  });
+
+  // --- init ---
+  loadDefaults();
+</script>
+</body>
+</html>
