@@ -1,30 +1,55 @@
 import { askBaseQuestions, askPagination, askOutput, confirmSummary } from './prompts.js';
-import { loadScrapeDefaults } from './loadConfig.js';
+import { loadScrapeDefaults, loadScrapeConfig, getEffectiveConfig } from './loadConfig.js';
 import { runScrapeJob } from '../src/orchestrator.js';
 import { resolveOutputPath, writeCSV } from '../src/csv.js';
 
-export async function run() {
+const REQUIRED_PRESET_KEYS = ['url', 'container', 'item', 'fields'];
+
+function missingRequiredFields(config) {
+  return REQUIRED_PRESET_KEYS.filter((key) => !String(config[key] || '').trim());
+}
+
+export function resolveConfigForPreset(configData, presetName) {
+  const config = getEffectiveConfig(configData, presetName);
+  const missing = missingRequiredFields(config);
+  if (missing.length) {
+    throw new Error(
+      `Preset "${presetName}" is missing required values after merge: ${missing.join(', ')}`,
+    );
+  }
+  return { ...config, output: resolveOutputPath(config.output) };
+}
+
+export async function run(options = {}) {
   console.log('\n  scrape-a-list — CLI Web Scraper\n');
 
-  let defaults;
+  let config;
+  let presetName = null;
   try {
-    defaults = loadScrapeDefaults();
+    presetName = typeof options.preset === 'string' ? options.preset.trim() : null;
+    if (presetName) {
+      const fullConfig = loadScrapeConfig();
+      config = resolveConfigForPreset(fullConfig, presetName);
+    } else {
+      const defaults = loadScrapeDefaults();
+      const base = await askBaseQuestions(defaults);
+      const pagination = await askPagination(defaults);
+      const { output } = await askOutput(defaults);
+      const outputPath = resolveOutputPath(output);
+      config = { ...base, ...pagination, output: outputPath };
+    }
   } catch (err) {
     console.error(`\n${err.message}\n`);
     process.exit(1);
   }
 
-  const base = await askBaseQuestions(defaults);
-  const pagination = await askPagination(defaults);
-  const { output } = await askOutput(defaults);
-  const outputPath = resolveOutputPath(output);
-
-  const config = { ...base, ...pagination, output: outputPath };
-
-  const confirmed = await confirmSummary(config);
+  const confirmed = await confirmSummary(config, { interactive: !presetName });
   if (!confirmed) {
     console.log('Aborted.');
     return;
+  }
+  if (presetName) {
+    console.log(`Running preset: ${presetName}`);
   }
 
   let items;

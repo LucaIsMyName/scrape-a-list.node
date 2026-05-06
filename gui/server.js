@@ -8,7 +8,7 @@ import { runScrapeJob } from '../src/orchestrator.js';
 import { parseFields, isAbortError } from '../src/scraper.js';
 import { validateTargetUrl } from '../src/urlSafety.js';
 import { writeCSV } from '../src/csv.js';
-import { loadScrapeDefaults } from '../cli/loadConfig.js';
+import { loadScrapeDefaults, loadScrapeConfig } from '../cli/loadConfig.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, 'public');
@@ -122,6 +122,15 @@ export function createApp() {
       res.json(defaults);
     } catch {
       res.json({});
+    }
+  });
+
+  app.get('/api/config', (_req, res) => {
+    try {
+      const config = loadScrapeConfig();
+      res.json(config);
+    } catch {
+      res.json({ defaults: {}, presets: [] });
     }
   });
 

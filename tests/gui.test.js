@@ -64,3 +64,23 @@ test('GET /api/download serves files under output with safe headers', async () =
     await rm(outputFile, { force: true });
   }
 });
+
+test('GET /api/config returns defaults and presets payload', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/config`);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(typeof body, 'object');
+    assert.equal(typeof body.defaults, 'object');
+    assert.equal(Array.isArray(body.presets), true);
+  });
+});
+
+test('GET / serves preset selector in GUI markup', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/`);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /id="preset"/);
+  });
+});

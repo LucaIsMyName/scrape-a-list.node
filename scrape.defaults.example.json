@@ -3,9 +3,28 @@
   "container": ".event-list",
   "item": ".event-card",
   "fields": "title:.event-title, date:.event-date, venue:.event-venue",
+  "output": "",
   "paginate": true,
   "strategy": "next-link",
   "nextSelector": "a.pagination-next",
   "urlTemplate": "",
-  "maxPages": 0
+  "maxPages": 0,
+  "presets": [
+    {
+      "presetName": "events-next-link",
+      "url": "https://example.com/concerts",
+      "container": ".event-list",
+      "item": ".event-card",
+      "fields": "title:.event-title, date:.event-date, venue:.event-venue",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "a.pagination-next"
+    },
+    {
+      "presetName": "events-url-pattern",
+      "strategy": "url-pattern",
+      "urlTemplate": "https://example.com/concerts?page={page}",
+      "maxPages": 5
+    }
+  ]
 }

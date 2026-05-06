@@ -3,9 +3,32 @@
   "container": ".facility-list",
   "item": ".card-item ",
   "fields": "title:.title, subtitle:.subtitle, location:.location",
+  "output": "",
   "paginate": true,
   "strategy": "next-link",
   "nextSelector": "a.page-link.arrow-next",
   "urlTemplate": "",
-  "maxPages": 0
+  "maxPages": 0,
+  "presets": [
+    {
+      "presetName": "diakonie-angebote",
+      "url": "https://www.diakonie.at/unsere-angebote-und-einrichtungen/liste",
+      "container": ".facility-list",
+      "item": ".card-item ",
+      "fields": "title:.title, subtitle:.subtitle, location:.location",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "a.page-link.arrow-next"
+    },
+    {
+      "presetName": "rockhouse-konzerte",
+      "url": "https://www.rockhouse.at/Veranstaltungen",
+      "container": ".list",
+      "item": ".event.box",
+      "fields": "dateAndLocation:.date, artist:h2, supportArtists:.artsists, prices:.prices, location:.location",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "#next_month"
+    }
+  ]
 }

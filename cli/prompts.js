@@ -118,7 +118,9 @@ export async function askOutput(defaults) {
   ]);
 }
 
-export async function confirmSummary(config) {
+export async function confirmSummary(config, options = {}) {
+  const interactive = options.interactive !== false;
+
   console.log('\n--- Scrape Configuration ---');
   console.log(`  URL:        ${config.url}`);
   console.log(`  Container:  ${config.container}`);
@@ -137,6 +139,8 @@ export async function confirmSummary(config) {
   }
   console.log(`  Output:     ${config.output}`);
   console.log('----------------------------\n');
+
+  if (!interactive) return true;
 
   const { confirmed } = await inquirer.prompt([
     {

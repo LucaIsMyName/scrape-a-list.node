@@ -488,6 +488,13 @@
   <div class="card-title">Configuration</div>
 
   <div class="field">
+    <label for="preset">Preset</label>
+    <select id="preset">
+      <option value="">Global defaults</option>
+    </select>
+  </div>
+
+  <div class="field">
     <label for="url">Starting page URL</label>
     <input type="url" id="url" placeholder="https://example.com/concerts" />
   </div>
@@ -638,6 +645,7 @@
   let lastCsvPath = null;
   let scraping    = false;
   let activeJobId = null;
+  let loadedConfig = { defaults: {}, presets: [] };
 
   function setAbortVisible(show) {
     abortBtnEl.classList.toggle('visible', !!show);
@@ -978,30 +986,65 @@
     };
   }); // end scrape-btn click
 
-  // ─── Load defaults ────────────────────────────────────────────────
+  function applyConfigToForm(d) {
+    document.getElementById('url').value = d.url || '';
+    document.getElementById('container').value = d.container || '';
+    document.getElementById('item').value = d.item || '';
+    document.getElementById('fields').value = d.fields || '';
+    document.getElementById('output').value = d.output || '';
+    document.getElementById('paginate-toggle').checked = Boolean(d.paginate);
+    updatePaginationUI(Boolean(d.paginate));
+    const strategy = d.strategy || 'next-link';
+    document.getElementById('strategy').value = strategy;
+    updateStrategyUI(strategy);
+    document.getElementById('next-selector').value = d.nextSelector || '';
+    document.getElementById('url-template').value = d.urlTemplate || '';
+    document.getElementById('max-pages').value = d.maxPages != null ? d.maxPages : 0;
+  }
+
+  function getEffectiveConfigFromPreset(presetName) {
+    const defaults = loadedConfig.defaults || {};
+    if (!presetName) return { ...defaults };
+    const selected = (loadedConfig.presets || []).find(p => p.presetName === presetName);
+    if (!selected) return { ...defaults };
+    const { presetName: _ignoredPresetName, ...presetValues } = selected;
+    return { ...defaults, ...presetValues };
+  }
+
+  function populatePresetOptions() {
+    const presetEl = document.getElementById('preset');
+    presetEl.replaceChildren();
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Global defaults';
+    presetEl.appendChild(defaultOption);
+
+    for (const preset of loadedConfig.presets || []) {
+      const option = document.createElement('option');
+      option.value = preset.presetName;
+      option.textContent = preset.presetName;
+      presetEl.appendChild(option);
+    }
+  }
+
+  // ─── Load config and presets ──────────────────────────────────────
   async function loadDefaults() {
     try {
-      const r = await fetch('/api/defaults');
+      const r = await fetch('/api/config');
       if (!r.ok) return;
-      const d = await r.json();
-      if (d.url)       document.getElementById('url').value       = d.url;
-      if (d.container) document.getElementById('container').value = d.container;
-      if (d.item)      document.getElementById('item').value      = d.item;
-      if (d.fields)    document.getElementById('fields').value    = d.fields;
-      if (d.output)    document.getElementById('output').value    = d.output;
-      if (d.paginate) {
-        document.getElementById('paginate-toggle').checked = true;
-        updatePaginationUI(true);
-      }
-      if (d.strategy) {
-        document.getElementById('strategy').value = d.strategy;
-        updateStrategyUI(d.strategy);
-      }
-      if (d.nextSelector) document.getElementById('next-selector').value = d.nextSelector;
-      if (d.urlTemplate)  document.getElementById('url-template').value  = d.urlTemplate;
-      if (d.maxPages != null) document.getElementById('max-pages').value = d.maxPages;
+      const config = await r.json();
+      loadedConfig = {
+        defaults: config?.defaults || {},
+        presets: Array.isArray(config?.presets) ? config.presets : [],
+      };
+      populatePresetOptions();
+      applyConfigToForm(getEffectiveConfigFromPreset(''));
     } catch { /* no defaults available */ }
   }
+
+  document.getElementById('preset').addEventListener('change', (e) => {
+    applyConfigToForm(getEffectiveConfigFromPreset(e.target.value));
+  });
 
   loadDefaults();
 </script>
