@@ -17,7 +17,7 @@ export function listTimestampBasename(d = new Date()) {
   const h = pad2(d.getHours());
   const min = pad2(d.getMinutes());
   const s = pad2(d.getSeconds());
-  return `list-${y}-${mo}-${day}-${h}:${min}:${s}.csv`;
+  return `list-${y}-${mo}-${day}-${h}-${min}-${s}.csv`;
 }
 
 /**
@@ -47,8 +47,21 @@ export function resolveOutputPath(filePath) {
  */
 export function toCSV(items) {
   if (!items.length) return '';
-  const parser = new Parser({ fields: Object.keys(items[0]) });
-  return parser.parse(items);
+  const fields = [...new Set(items.flatMap((item) => Object.keys(item)))];
+  const sanitizedItems = items.map((item) => {
+    const row = {};
+    for (const key of fields) {
+      const value = item[key];
+      if (typeof value === 'string' && /^[=+\-@]/.test(value)) {
+        row[key] = `'${value}`;
+      } else {
+        row[key] = value;
+      }
+    }
+    return row;
+  });
+  const parser = new Parser({ fields });
+  return parser.parse(sanitizedItems);
 }
 
 /**

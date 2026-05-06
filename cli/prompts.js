@@ -100,7 +100,7 @@ export async function askPagination(defaults) {
     {
       type: 'number',
       name: 'maxPages',
-      message: 'Max pages to scrape (0 = no limit):',
+      message: 'Max pages to scrape (0 = auto until pages stop):',
       default: defaults.maxPages,
     },
   ]);
@@ -130,7 +130,7 @@ export async function confirmSummary(config) {
       console.log(`  Next link:  ${config.nextSelector}`);
     } else {
       console.log(`  URL pattern: ${config.urlTemplate}`);
-      console.log(`  Max pages:   ${config.maxPages || 'unlimited'}`);
+      console.log(`  Max pages:   ${config.maxPages || 'auto'}`);
     }
   } else {
     console.log('  Pagination: no');

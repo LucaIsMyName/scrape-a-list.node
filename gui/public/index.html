@@ -550,7 +550,7 @@
         <p class="hint">Must contain <code>{page}</code></p>
       </div>
       <div class="field" style="max-width:160px">
-        <label for="max-pages">Max pages <span style="font-weight:400">(0 = no limit)</span></label>
+        <label for="max-pages">Max pages <span style="font-weight:400">(0 = auto until pages stop)</span></label>
         <input type="number" id="max-pages" value="0" min="0" />
       </div>
     </div>
@@ -668,10 +668,10 @@
   }
 
   function resetDialog() {
-    logEl.innerHTML = '';
+    logEl.replaceChildren();
     dialogResult.classList.remove('visible');
-    document.getElementById('preview-head').innerHTML = '';
-    document.getElementById('preview-body').innerHTML = '';
+    document.getElementById('preview-head').replaceChildren();
+    document.getElementById('preview-body').replaceChildren();
     document.getElementById('table-note').textContent = '';
     dialogDot.className = 'dot';
     dialogTitle.textContent = 'Scraping…';
@@ -692,9 +692,16 @@
   function appendPageLog(page, count) {
     const line = document.createElement('div');
     line.className = 'log-line page';
-    line.innerHTML =
-      `  Page <span class="log-page-num">${page}</span>: ` +
-      `<span class="log-count">${count}</span> item${count !== 1 ? 's' : ''}`;
+    const prefix = document.createTextNode('  Page ');
+    const pageEl = document.createElement('span');
+    pageEl.className = 'log-page-num';
+    pageEl.textContent = String(page);
+    const mid = document.createTextNode(': ');
+    const countEl = document.createElement('span');
+    countEl.className = 'log-count';
+    countEl.textContent = String(count);
+    const suffix = document.createTextNode(` item${count !== 1 ? 's' : ''}`);
+    line.append(prefix, pageEl, mid, countEl, suffix);
     logEl.appendChild(line);
     logEl.scrollTop = logEl.scrollHeight;
   }

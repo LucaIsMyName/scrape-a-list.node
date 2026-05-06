@@ -1,5 +1,9 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { validateTargetUrl } from './urlSafety.js';
+
+const DEFAULT_HTTP_TIMEOUT_MS = 15_000;
+const DEFAULT_MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 
 /**
  * True if the error came from axios abort / AbortSignal cancellation.
@@ -26,11 +30,19 @@ export function isAbortError(err) {
  * @param {Array<{name: string, selector: string}>} opts.fields - Fields to extract from each item
  * @param {object} [reqOpts]
  * @param {AbortSignal} [reqOpts.signal] - Passed to axios to allow cancellation
+ * @param {number} [reqOpts.timeoutMs]
+ * @param {number} [reqOpts.maxResponseBytes]
+ * @param {boolean} [reqOpts.allowPrivateNetwork]
  * @returns {Promise<{items: object[], $: cheerio.CheerioAPI}>}
  */
-export async function scrapePage(url, { container, item, fields }, { signal } = {}) {
-  const { data: html } = await axios.get(url, {
+export async function scrapePage(url, { container, item, fields }, { signal, timeoutMs, maxResponseBytes, allowPrivateNetwork } = {}) {
+  const safeUrl = validateTargetUrl(url, { allowPrivateNetwork });
+  const { data: html } = await axios.get(safeUrl.href, {
     signal,
+    timeout: Number(timeoutMs) > 0 ? Number(timeoutMs) : DEFAULT_HTTP_TIMEOUT_MS,
+    maxContentLength: Number(maxResponseBytes) > 0 ? Number(maxResponseBytes) : DEFAULT_MAX_RESPONSE_BYTES,
+    maxBodyLength: Number(maxResponseBytes) > 0 ? Number(maxResponseBytes) : DEFAULT_MAX_RESPONSE_BYTES,
+    responseType: 'text',
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -69,9 +81,14 @@ export function parseFields(fieldsStr) {
       if (colonIdx === -1) {
         throw new Error(`Invalid field format: "${pair}". Expected "name:selector".`);
       }
+      const name = pair.slice(0, colonIdx).trim();
+      const selector = pair.slice(colonIdx + 1).trim();
+      if (!name || !selector) {
+        throw new Error(`Invalid field format: "${pair}". Both name and selector are required.`);
+      }
       return {
-        name: pair.slice(0, colonIdx).trim(),
-        selector: pair.slice(colonIdx + 1).trim(),
+        name,
+        selector,
       };
     });
 }

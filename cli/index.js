@@ -1,7 +1,6 @@
 import { askBaseQuestions, askPagination, askOutput, confirmSummary } from './prompts.js';
 import { loadScrapeDefaults } from './loadConfig.js';
-import { scrapePage, parseFields } from '../src/scraper.js';
-import { paginateByNextLink, paginateByPattern } from '../src/paginator.js';
+import { runScrapeJob } from '../src/orchestrator.js';
 import { resolveOutputPath, writeCSV } from '../src/csv.js';
 
 export async function run() {
@@ -28,31 +27,31 @@ export async function run() {
     return;
   }
 
-  const fields = parseFields(config.fields);
-  const scrapeOpts = {
-    container: config.container,
-    item: config.item,
-    fields,
-  };
-
   let items;
 
   try {
-    if (!config.paginate) {
-      console.log('Scraping single page...');
-      const result = await scrapePage(config.url, scrapeOpts);
-      items = result.items;
-    } else if (config.strategy === 'next-link') {
-      console.log('Scraping with "next link" pagination...');
-      items = await paginateByNextLink(config.url, config.nextSelector, scrapeOpts, (page, count) => {
+    if (!config.paginate) console.log('Scraping single page...');
+    else if (config.strategy === 'next-link') console.log('Scraping with "next link" pagination...');
+    else console.log('Scraping with URL pattern pagination...');
+
+    const result = await runScrapeJob(
+      {
+        url: config.url,
+        container: config.container,
+        item: config.item,
+        fieldsRaw: config.fields,
+        paginate: config.paginate,
+        strategy: config.strategy,
+        nextSelector: config.nextSelector,
+        urlTemplate: config.urlTemplate,
+        maxPages: config.maxPages,
+      },
+      (page, count) => {
         console.log(`  Page ${page}: ${count} items`);
-      });
-    } else {
-      console.log('Scraping with URL pattern pagination...');
-      items = await paginateByPattern(config.urlTemplate, config.maxPages, scrapeOpts, (page, count) => {
-        console.log(`  Page ${page}: ${count} items`);
-      });
-    }
+      },
+      { allowPrivateNetwork: true },
+    );
+    items = result.items;
 
     if (!items.length) {
       console.log('\nNo items found. Check your selectors and try again.');
