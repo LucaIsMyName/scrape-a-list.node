@@ -17,7 +17,7 @@ export function listTimestampBasename(d = new Date()) {
   const h = pad2(d.getHours());
   const min = pad2(d.getMinutes());
   const s = pad2(d.getSeconds());
-  return `list-${y}-${mo}-${day}-${h}-${min}-${s}.csv`;
+  return `list-${y}${mo}${day}${h}${min}${s}.csv`;
 }
 
 /**

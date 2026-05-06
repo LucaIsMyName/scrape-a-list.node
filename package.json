@@ -1,6 +1,6 @@
 {
   "name": "scrape-a-list.node",
-  "version": "2026.05.06.2",
+  "version": "2026.05.06.3",
   "description": "CLI web scraper that extracts any list from any website",
   "type": "module",
   "license": "MIT",

@@ -35,8 +35,8 @@ Use this document to keep coding decisions consistent across sessions and contri
 
 ## Project Metadata
 
-- App name: ---
-- Primary runtime: ---
+- App name: scarep-a-list-node
+- Primary runtime: Node JS
 - Deployment target: ---
 - Package manager: NPM
 - Main data sources: ---
