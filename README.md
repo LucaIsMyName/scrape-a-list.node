@@ -22,6 +22,7 @@ Interactive prompts are **prefilled** from [`scrape.defaults.json`](scrape.defau
 
 - **Template:** [`scrape.defaults.example.json`](scrape.defaults.example.json) has the same shape; copy it to `scrape.defaults.json` if you start from a clone without defaults.
 - **Global keys:** `url`, `container`, `item`, `fields`, `output` (optional; see below), `paginate` (boolean), `strategy` (`"next-link"` or `"url-pattern"`), `nextSelector`, `urlTemplate`, `maxPages` (number; `0` means automatic paging until pages stop, with a safety cap).
+- **Advanced next-link keys (optional):** `nextUrlSourceSelector`, `nextUrlAttribute`, `nextSiblingSelector` for sites where the visible next control has no `href` and the URL lives in another DOM element (for example selected dropdown option + next sibling option).
 - **Presets:** optional `presets` array. Every preset is an object with required `presetName` plus any of the same scrape keys. Preset values override global keys when selected.
 - **Output name:** Omit `output`, set it to `""`, or accept the prompt default to use an automatic name `list-YYYY-MM-DD-HH-MM-SS.csv` (local time). Files are written under `output/` unless you use an `output/...` or absolute path. Set `output` to a non-empty string (e.g. `concerts.csv`) to use a fixed basename instead.
 - **Missing file:** If `scrape.defaults.json` is absent, the CLI warns and uses empty defaults; the default output name is still a fresh `list-YYYY-MM-DD-HH-MM-SS.csv`.
@@ -44,6 +45,15 @@ Behavior:
 - The CLI merges `scrape.defaults.json` global keys with the selected preset.
 - If required values are missing after merge (`url`, `container`, `item`, `fields`), the CLI exits with a clear error.
 - If the preset name is unknown, the CLI exits and lists available preset names.
+
+### Pagination note for JS-driven websites
+
+Some websites render a visible “next” control without an `href` and compute the next URL via JavaScript. For these pages, keep `strategy: "next-link"` and set:
+
+- `nextSelector`: selector for the visible next control
+- `nextUrlSourceSelector`: selector for a URL source element (for example currently selected month option)
+- `nextUrlAttribute`: attribute containing the URL (often `value`)
+- `nextSiblingSelector`: sibling selector for advancing to the next source element (often `option`)
 
 The tool will interactively prompt you for:
 

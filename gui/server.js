@@ -43,7 +43,26 @@ function sanitizeAttachmentFilename(name) {
   return name.replace(/[\r\n"]/g, '_');
 }
 
-function assertValidApiConfig({ url, container, item, fieldsRaw, paginate, strategy, nextSelector, urlTemplate }) {
+function assertOptionalString(value, keyName) {
+  if (value == null) return;
+  if (typeof value !== 'string') {
+    throw new Error(`"${keyName}" must be a string.`);
+  }
+}
+
+function assertValidApiConfig({
+  url,
+  container,
+  item,
+  fieldsRaw,
+  paginate,
+  strategy,
+  nextSelector,
+  nextUrlSourceSelector,
+  nextUrlAttribute,
+  nextSiblingSelector,
+  urlTemplate,
+}) {
   if (!url || !container || !item || !fieldsRaw) {
     throw new Error('url, container, item, and fields are required.');
   }
@@ -52,6 +71,9 @@ function assertValidApiConfig({ url, container, item, fieldsRaw, paginate, strat
   if (paginate && strategy === 'next-link' && !String(nextSelector || '').trim()) {
     throw new Error('"nextSelector" is required for next-link pagination.');
   }
+  assertOptionalString(nextUrlSourceSelector, 'nextUrlSourceSelector');
+  assertOptionalString(nextUrlAttribute, 'nextUrlAttribute');
+  assertOptionalString(nextSiblingSelector, 'nextSiblingSelector');
   if (paginate && strategy === 'url-pattern') {
     if (!String(urlTemplate || '').includes('{page}')) {
       throw new Error('"urlTemplate" must contain {page}.');
@@ -144,6 +166,9 @@ export function createApp() {
       paginate,
       strategy,
       nextSelector,
+      nextUrlSourceSelector,
+      nextUrlAttribute,
+      nextSiblingSelector,
       urlTemplate,
       maxPages = 0,
       output,
@@ -158,6 +183,9 @@ export function createApp() {
         paginate: Boolean(paginate),
         strategy,
         nextSelector,
+        nextUrlSourceSelector,
+        nextUrlAttribute,
+        nextSiblingSelector,
         urlTemplate,
       });
     } catch (err) {
@@ -181,6 +209,9 @@ export function createApp() {
       paginate: Boolean(paginate),
       strategy,
       nextSelector,
+      nextUrlSourceSelector,
+      nextUrlAttribute,
+      nextSiblingSelector,
       urlTemplate,
       maxPages,
       output,

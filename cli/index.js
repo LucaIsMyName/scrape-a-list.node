@@ -36,7 +36,7 @@ export async function run(options = {}) {
       const pagination = await askPagination(defaults);
       const { output } = await askOutput(defaults);
       const outputPath = resolveOutputPath(output);
-      config = { ...base, ...pagination, output: outputPath };
+      config = { ...defaults, ...base, ...pagination, output: outputPath };
     }
   } catch (err) {
     console.error(`\n${err.message}\n`);
@@ -68,6 +68,9 @@ export async function run(options = {}) {
         paginate: config.paginate,
         strategy: config.strategy,
         nextSelector: config.nextSelector,
+        nextUrlSourceSelector: config.nextUrlSourceSelector,
+        nextUrlAttribute: config.nextUrlAttribute,
+        nextSiblingSelector: config.nextSiblingSelector,
         urlTemplate: config.urlTemplate,
         maxPages: config.maxPages,
       },

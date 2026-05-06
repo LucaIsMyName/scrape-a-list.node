@@ -82,5 +82,28 @@ test('GET / serves preset selector in GUI markup', async () => {
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, /id="preset"/);
+    assert.match(html, /id="next-url-source-selector"/);
+  });
+});
+
+test('POST /api/scrape validates advanced next-link fallback field types', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/scrape`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        url: 'https://example.com/list',
+        container: '.list',
+        item: '.item',
+        fields: 'title:.title',
+        paginate: true,
+        strategy: 'next-link',
+        nextSelector: '#next_month',
+        nextUrlSourceSelector: 123,
+      }),
+    });
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.match(body.error, /nextUrlSourceSelector/i);
   });
 });

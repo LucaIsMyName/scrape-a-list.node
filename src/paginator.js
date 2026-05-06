@@ -2,9 +2,94 @@ import { scrapePage, isAbortError } from './scraper.js';
 import { createHash } from 'node:crypto';
 
 const HARD_PAGE_LIMIT = 200;
+const COMMON_URL_ATTRS = ['href', 'data-href', 'data-url', 'data-next', 'data-next-url', 'value'];
 
 function hashItems(items) {
   return createHash('md5').update(JSON.stringify(items)).digest('hex');
+}
+
+function uniq(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function resolveAttrUrl(raw, currentUrl) {
+  const value = typeof raw === 'string' ? raw.trim() : '';
+  if (!value) return null;
+  try {
+    return new URL(value, currentUrl).href;
+  } catch {
+    return null;
+  }
+}
+
+function extractUrlFromElement($, candidate, currentUrl, preferredAttr = '') {
+  const attrs = uniq([preferredAttr, ...COMMON_URL_ATTRS]);
+
+  const directNodes = [
+    candidate,
+    $(candidate).closest('a').get(0),
+    ...$(candidate).find('a, [href], [data-href], [data-url], [data-next], [data-next-url]').toArray(),
+  ].filter(Boolean);
+
+  for (const node of directNodes) {
+    for (const attr of attrs) {
+      const resolved = resolveAttrUrl($(node).attr(attr), currentUrl);
+      if (resolved) return resolved;
+    }
+  }
+  return null;
+}
+
+function resolveFallbackNextUrl(
+  $,
+  currentUrl,
+  { nextUrlSourceSelector = '', nextUrlAttribute = '', nextSiblingSelector = '' } = {},
+) {
+  if (!nextUrlSourceSelector) return null;
+  const source = $(nextUrlSourceSelector).first();
+  if (!source.length) return null;
+
+  let target = null;
+  if (nextSiblingSelector) {
+    target = source.next(nextSiblingSelector).first();
+  } else {
+    target = source.next().first();
+  }
+  if (!target?.length) return null;
+
+  const attrs = uniq([nextUrlAttribute, 'href', 'value', 'data-href', 'data-url', 'data-next', 'data-next-url']);
+  for (const attr of attrs) {
+    const resolved = resolveAttrUrl(target.attr(attr), currentUrl);
+    if (resolved) return resolved;
+  }
+
+  return extractUrlFromElement($, target.get(0), currentUrl, nextUrlAttribute);
+}
+
+function resolveNextUrl(
+  $,
+  currentUrl,
+  nextSelector,
+  visitedUrls,
+  { nextUrlAttribute = '', nextUrlSourceSelector = '', nextSiblingSelector = '' } = {},
+) {
+  const candidates = $(nextSelector).toArray().reverse();
+  for (const candidate of candidates) {
+    const resolved = extractUrlFromElement($, candidate, currentUrl, nextUrlAttribute);
+    if (resolved && !visitedUrls.has(resolved)) {
+      return resolved;
+    }
+  }
+
+  const fallbackUrl = resolveFallbackNextUrl($, currentUrl, {
+    nextUrlSourceSelector,
+    nextUrlAttribute,
+    nextSiblingSelector,
+  });
+  if (fallbackUrl && !visitedUrls.has(fallbackUrl)) {
+    return fallbackUrl;
+  }
+  return null;
 }
 
 /**
@@ -19,7 +104,13 @@ function hashItems(items) {
  * @returns {Promise<object[]>} All items collected across pages
  */
 export async function paginateByNextLink(startUrl, nextSelector, scrapeOpts, onPage, options = {}) {
-  const { signal, ...fetchOpts } = options;
+  const {
+    signal,
+    nextUrlSourceSelector,
+    nextUrlAttribute,
+    nextSiblingSelector,
+    ...fetchOpts
+  } = options;
   const allItems = [];
   const visitedUrls = new Set();
   let currentUrl = startUrl;
@@ -45,20 +136,11 @@ export async function paginateByNextLink(startUrl, nextSelector, scrapeOpts, onP
       throw err;
     }
 
-    // Find the next-page link: pick the last matching element whose href
-    // points to a URL we haven't visited yet (pagination links typically
-    // list previous pages first, with "next" at the end).
-    let nextUrl = null;
-    const candidates = $(nextSelector).toArray().reverse();
-    for (const candidate of candidates) {
-      const href = $(candidate).attr('href');
-      if (!href) continue;
-      const resolved = new URL(href, currentUrl).href;
-      if (!visitedUrls.has(resolved)) {
-        nextUrl = resolved;
-        break;
-      }
-    }
+    const nextUrl = resolveNextUrl($, currentUrl, nextSelector, visitedUrls, {
+      nextUrlSourceSelector,
+      nextUrlAttribute,
+      nextSiblingSelector,
+    });
     if (!nextUrl) break;
     currentUrl = nextUrl;
     page++;

@@ -12,6 +12,9 @@ import { paginateByNextLink, paginateByPattern } from './paginator.js';
  * @param {boolean} config.paginate
  * @param {'next-link'|'url-pattern'} [config.strategy]
  * @param {string} [config.nextSelector]
+ * @param {string} [config.nextUrlSourceSelector]
+ * @param {string} [config.nextUrlAttribute]
+ * @param {string} [config.nextSiblingSelector]
  * @param {string} [config.urlTemplate]
  * @param {number} [config.maxPages]
  * @param {(page:number,count:number)=>void} [onPage]
@@ -42,7 +45,12 @@ export async function runScrapeJob(config, onPage, options = {}) {
     items = result.items;
     if (onPage) onPage(1, items.length);
   } else if (config.strategy === 'next-link') {
-    items = await paginateByNextLink(config.url, config.nextSelector, scrapeOpts, onPage, fetchOpts);
+    items = await paginateByNextLink(config.url, config.nextSelector, scrapeOpts, onPage, {
+      ...fetchOpts,
+      nextUrlSourceSelector: config.nextUrlSourceSelector,
+      nextUrlAttribute: config.nextUrlAttribute,
+      nextSiblingSelector: config.nextSiblingSelector,
+    });
   } else {
     items = await paginateByPattern(config.urlTemplate, Number(config.maxPages) || 0, scrapeOpts, onPage, fetchOpts);
   }

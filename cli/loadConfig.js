@@ -17,6 +17,9 @@ const FALLBACK = {
   paginate: false,
   strategy: 'next-link',
   nextSelector: '',
+  nextUrlSourceSelector: '',
+  nextUrlAttribute: '',
+  nextSiblingSelector: '',
   urlTemplate: '',
   maxPages: 0,
 };
@@ -28,6 +31,9 @@ const SCRAPE_STRING_KEYS = [
   'fields',
   'output',
   'nextSelector',
+  'nextUrlSourceSelector',
+  'nextUrlAttribute',
+  'nextSiblingSelector',
   'urlTemplate',
 ];
 

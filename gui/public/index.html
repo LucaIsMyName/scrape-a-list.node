@@ -548,6 +548,21 @@
         <label for="next-selector">CSS selector for the "next page" link</label>
         <input type="text" id="next-selector" placeholder="a.pagination-next" />
       </div>
+      <div class="field">
+        <label for="next-url-source-selector">Next URL source selector <span style="font-weight:400">(optional)</span></label>
+        <input type="text" id="next-url-source-selector" placeholder="#dropdown_months option[selected]" />
+        <p class="hint">Use for JS-driven pagination where the visible next control has no href.</p>
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label for="next-url-attribute">Next URL attribute <span style="font-weight:400">(optional)</span></label>
+          <input type="text" id="next-url-attribute" placeholder="value" />
+        </div>
+        <div class="field">
+          <label for="next-sibling-selector">Next sibling selector <span style="font-weight:400">(optional)</span></label>
+          <input type="text" id="next-sibling-selector" placeholder="option" />
+        </div>
+      </div>
     </div>
 
     <div class="strategy-pane" id="pane-url-pattern">
@@ -819,6 +834,9 @@
       paginate,
       strategy,
       nextSelector: document.getElementById('next-selector').value.trim(),
+      nextUrlSourceSelector: document.getElementById('next-url-source-selector').value.trim(),
+      nextUrlAttribute: document.getElementById('next-url-attribute').value.trim(),
+      nextSiblingSelector: document.getElementById('next-sibling-selector').value.trim(),
       urlTemplate:  document.getElementById('url-template').value.trim(),
       maxPages:     Number(document.getElementById('max-pages').value) || 0,
     };
@@ -998,6 +1016,9 @@
     document.getElementById('strategy').value = strategy;
     updateStrategyUI(strategy);
     document.getElementById('next-selector').value = d.nextSelector || '';
+    document.getElementById('next-url-source-selector').value = d.nextUrlSourceSelector || '';
+    document.getElementById('next-url-attribute').value = d.nextUrlAttribute || '';
+    document.getElementById('next-sibling-selector').value = d.nextSiblingSelector || '';
     document.getElementById('url-template').value = d.urlTemplate || '';
     document.getElementById('max-pages').value = d.maxPages != null ? d.maxPages : 0;
   }

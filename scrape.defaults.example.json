@@ -25,6 +25,19 @@
       "strategy": "url-pattern",
       "urlTemplate": "https://example.com/concerts?page={page}",
       "maxPages": 5
+    },
+    {
+      "presetName": "js-driven-next-control",
+      "url": "https://www.rockhouse.at/Veranstaltungen",
+      "container": ".template_container",
+      "item": ".event.box",
+      "fields": "dateAndLocation:.date, artist:h2, supportArtists:.artists, prices:.prices, location:.location",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "#calendar_navigation_bottom a#next_month",
+      "nextUrlSourceSelector": "#dropdown_months option[selected]",
+      "nextUrlAttribute": "value",
+      "nextSiblingSelector": "option"
     }
   ]
 }
