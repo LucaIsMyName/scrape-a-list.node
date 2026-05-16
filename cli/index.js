@@ -73,11 +73,22 @@ export async function run(options = {}) {
         nextSiblingSelector: config.nextSiblingSelector,
         urlTemplate: config.urlTemplate,
         maxPages: config.maxPages,
+        retryAttempts: config.retryAttempts,
+        retryDelayMs: config.retryDelayMs,
+        pageDelayMs: config.pageDelayMs,
+        failOnPageError: config.failOnPageError,
       },
       (page, count) => {
         console.log(`  Page ${page}: ${count} items`);
       },
-      { allowPrivateNetwork: true },
+      {
+        allowPrivateNetwork: true,
+        onWarning: (warning) => {
+          if (warning?.type === 'http-page-error') {
+            console.warn(`  Warning: ${warning.message}`);
+          }
+        },
+      },
     );
     items = result.items;
 

@@ -4,6 +4,9 @@ import { validateTargetUrl } from './urlSafety.js';
 
 const DEFAULT_HTTP_TIMEOUT_MS = 15_000;
 const DEFAULT_MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
+const DEFAULT_RETRY_DELAY_MS = 0;
+const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const RETRYABLE_NETWORK_CODES = new Set(['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN', 'ENOTFOUND']);
 
 /**
  * True if the error came from axios abort / AbortSignal cancellation.
@@ -20,6 +23,39 @@ export function isAbortError(err) {
   );
 }
 
+function isRetryableError(err) {
+  if (isAbortError(err)) return false;
+  const status = err?.response?.status;
+  if (typeof status === 'number' && RETRYABLE_STATUS_CODES.has(status)) return true;
+  if (typeof err?.code === 'string' && RETRYABLE_NETWORK_CODES.has(err.code)) return true;
+  return !err?.response;
+}
+
+async function sleep(ms, signal) {
+  if (!(ms > 0)) return;
+  await new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      const aborted = new Error('Request aborted');
+      aborted.name = 'AbortError';
+      aborted.code = 'ERR_CANCELED';
+      reject(aborted);
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener?.('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      const aborted = new Error('Request aborted');
+      aborted.name = 'AbortError';
+      aborted.code = 'ERR_CANCELED';
+      reject(aborted);
+    };
+    signal?.addEventListener?.('abort', onAbort, { once: true });
+  });
+}
+
 /**
  * Fetches a page and extracts items from it.
  *
@@ -33,21 +69,43 @@ export function isAbortError(err) {
  * @param {number} [reqOpts.timeoutMs]
  * @param {number} [reqOpts.maxResponseBytes]
  * @param {boolean} [reqOpts.allowPrivateNetwork]
+ * @param {number} [reqOpts.retryAttempts]
+ * @param {number} [reqOpts.retryDelayMs]
  * @returns {Promise<{items: object[], $: cheerio.CheerioAPI}>}
  */
-export async function scrapePage(url, { container, item, fields }, { signal, timeoutMs, maxResponseBytes, allowPrivateNetwork } = {}) {
+export async function scrapePage(
+  url,
+  { container, item, fields },
+  { signal, timeoutMs, maxResponseBytes, allowPrivateNetwork, retryAttempts = 0, retryDelayMs = DEFAULT_RETRY_DELAY_MS } = {},
+) {
   const safeUrl = validateTargetUrl(url, { allowPrivateNetwork });
-  const { data: html } = await axios.get(safeUrl.href, {
-    signal,
-    timeout: Number(timeoutMs) > 0 ? Number(timeoutMs) : DEFAULT_HTTP_TIMEOUT_MS,
-    maxContentLength: Number(maxResponseBytes) > 0 ? Number(maxResponseBytes) : DEFAULT_MAX_RESPONSE_BYTES,
-    maxBodyLength: Number(maxResponseBytes) > 0 ? Number(maxResponseBytes) : DEFAULT_MAX_RESPONSE_BYTES,
-    responseType: 'text',
-    headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    },
-  });
+  const maxRetries = Number(retryAttempts) > 0 ? Number(retryAttempts) : 0;
+  const delayMs = Number(retryDelayMs) > 0 ? Number(retryDelayMs) : DEFAULT_RETRY_DELAY_MS;
+  let html;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      const response = await axios.get(safeUrl.href, {
+        signal,
+        timeout: Number(timeoutMs) > 0 ? Number(timeoutMs) : DEFAULT_HTTP_TIMEOUT_MS,
+        maxContentLength: Number(maxResponseBytes) > 0 ? Number(maxResponseBytes) : DEFAULT_MAX_RESPONSE_BYTES,
+        maxBodyLength: Number(maxResponseBytes) > 0 ? Number(maxResponseBytes) : DEFAULT_MAX_RESPONSE_BYTES,
+        responseType: 'text',
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      });
+      html = response.data;
+      break;
+    } catch (err) {
+      const lastAttempt = attempt >= maxRetries;
+      if (!isRetryableError(err) || lastAttempt) {
+        throw err;
+      }
+      await sleep(delayMs, signal);
+    }
+  }
 
   const $ = cheerio.load(html);
   const items = [];

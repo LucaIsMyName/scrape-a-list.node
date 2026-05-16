@@ -134,3 +134,46 @@ test('paginateByNextLink stops gracefully when fallback source has no next targe
   assert.deepEqual(items.map((row) => row.title), ['June']);
   server.close();
 });
+
+test('paginateByPattern warns on HTTP error and can fail when configured', async () => {
+  const server = http.createServer((req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    const page = Number(url.searchParams.get('page'));
+    if (page === 1) {
+      res.end(createHtml(['P1']));
+      return;
+    }
+    res.statusCode = 404;
+    res.end('not found');
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+
+  const warnings = [];
+  const items = await paginateByPattern(
+    `http://127.0.0.1:${port}/list?page={page}`,
+    0,
+    { container: '.list', item: '.card', fields: [{ name: 'title', selector: '.title' }] },
+    undefined,
+    {
+      onWarning: (warning) => warnings.push(warning),
+    },
+  );
+  assert.deepEqual(items.map((row) => row.title), ['P1']);
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].status, 404);
+
+  await assert.rejects(
+    () =>
+      paginateByPattern(
+        `http://127.0.0.1:${port}/list?page={page}`,
+        0,
+        { container: '.list', item: '.card', fields: [{ name: 'title', selector: '.title' }] },
+        undefined,
+        { failOnHttpError: true },
+      ),
+    /Request failed with status code 404/,
+  );
+
+  server.close();
+});

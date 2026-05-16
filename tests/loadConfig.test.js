@@ -15,6 +15,10 @@ test('parseScrapeConfig returns defaults and presets', () => {
     nextUrlSourceSelector: '#months option[selected]',
     nextUrlAttribute: 'value',
     nextSiblingSelector: 'option',
+    retryAttempts: 2,
+    retryDelayMs: 250,
+    pageDelayMs: 100,
+    failOnPageError: true,
     presets: [
       {
         presetName: 'simple',
@@ -31,6 +35,10 @@ test('parseScrapeConfig returns defaults and presets', () => {
   assert.equal(config.defaults.nextUrlSourceSelector, '#months option[selected]');
   assert.equal(config.defaults.nextUrlAttribute, 'value');
   assert.equal(config.defaults.nextSiblingSelector, 'option');
+  assert.equal(config.defaults.retryAttempts, 2);
+  assert.equal(config.defaults.retryDelayMs, 250);
+  assert.equal(config.defaults.pageDelayMs, 100);
+  assert.equal(config.defaults.failOnPageError, true);
   assert.match(
     config.defaults.output,
     /^list-(\d{14}|\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})\.csv$/,
@@ -74,5 +82,27 @@ test('parseScrapeConfig rejects duplicate preset names', () => {
         ],
       }),
     /Duplicate presetName "dup"/,
+  );
+});
+
+test('parseScrapeConfig rejects invalid known key types', () => {
+  assert.throws(
+    () =>
+      parseScrapeConfig({
+        url: 'https://example.com',
+        container: '.list',
+        item: '.item',
+        fields: 'title:.title',
+        maxPages: '3',
+      }),
+    /maxPages must be a non-negative integer/,
+  );
+
+  assert.throws(
+    () =>
+      parseScrapeConfig({
+        presets: [{ presetName: 'x', retryAttempts: -1 }],
+      }),
+    /retryAttempts must be a non-negative integer/,
   );
 });

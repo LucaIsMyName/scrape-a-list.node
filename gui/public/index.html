@@ -971,6 +971,10 @@
         pillDot.className = 'pill-dot error';
         pillLabel.textContent = 'Error — click to view';
 
+      } else if (event.type === 'warning') {
+        const msg = event.warning?.message || 'A warning occurred during scraping.';
+        appendLog('Warning: ' + msg, 'warn');
+
       } else if (event.type === 'cancelled') {
         esStreamDone = true;
         es.close();

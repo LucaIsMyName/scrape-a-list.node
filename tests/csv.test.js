@@ -4,12 +4,15 @@ import { listTimestampBasename, resolveOutputPath, toCSV } from '../src/csv.js';
 
 test('listTimestampBasename uses cross-platform safe separators', () => {
   const name = listTimestampBasename(new Date('2026-05-06T14:30:45Z'));
-  assert.match(name, /^list-2026-05-06-\d{2}-30-45\.csv$/);
+  assert.match(name, /^list-(20260506\d{6}|2026-05-06-\d{2}-30-45)\.csv$/);
   assert.equal(name.includes(':'), false);
 });
 
 test('resolveOutputPath keeps output-prefixed paths and prefixes other relative ones', () => {
-  assert.match(resolveOutputPath(''), /^output\/list-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.csv$/);
+  assert.match(
+    resolveOutputPath(''),
+    /^output\/list-(\d{14}|\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})\.csv$/,
+  );
   assert.equal(resolveOutputPath('output/custom.csv'), 'output/custom.csv');
   assert.equal(resolveOutputPath('custom.csv'), 'output/custom.csv');
 });

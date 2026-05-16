@@ -10,16 +10,30 @@ import { validateTargetUrl } from '../src/urlSafety.js';
 import { writeCSV } from '../src/csv.js';
 import { loadScrapeDefaults, loadScrapeConfig } from '../cli/loadConfig.js';
 
+function parseIntegerEnv(name, fallback, { min = Number.NEGATIVE_INFINITY } = {}) {
+  const raw = process.env[name];
+  if (raw == null || raw.trim() === '') return fallback;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < min) return fallback;
+  return parsed;
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, 'public');
 const OUTPUT_DIR = resolve(__dirname, '..', 'output');
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = parseIntegerEnv('PORT', 3000, { min: 0 });
 const HOST = process.env.GUI_HOST || '127.0.0.1';
 const ALLOW_PRIVATE_NETWORK_TARGETS = process.env.ALLOW_PRIVATE_NETWORK_TARGETS === 'true';
-const SCRAPE_TIMEOUT_MS = Number(process.env.SCRAPE_TIMEOUT_MS) || 15_000;
-const SCRAPE_MAX_RESPONSE_BYTES = Number(process.env.SCRAPE_MAX_RESPONSE_BYTES) || 5 * 1024 * 1024;
-const MAX_JOB_EVENTS = Number(process.env.MAX_JOB_EVENTS) || 1_000;
-const JOB_TTL_MS = Number(process.env.JOB_TTL_MS) || 10 * 60 * 1000;
+const SCRAPE_TIMEOUT_MS = parseIntegerEnv('SCRAPE_TIMEOUT_MS', 15_000, { min: 1 });
+const SCRAPE_MAX_RESPONSE_BYTES = parseIntegerEnv('SCRAPE_MAX_RESPONSE_BYTES', 5 * 1024 * 1024, {
+  min: 1,
+});
+const SCRAPE_RETRY_ATTEMPTS = parseIntegerEnv('SCRAPE_RETRY_ATTEMPTS', 0, { min: 0 });
+const SCRAPE_RETRY_DELAY_MS = parseIntegerEnv('SCRAPE_RETRY_DELAY_MS', 0, { min: 0 });
+const SCRAPE_PAGE_DELAY_MS = parseIntegerEnv('SCRAPE_PAGE_DELAY_MS', 0, { min: 0 });
+const SCRAPE_FAIL_ON_PAGE_ERROR = process.env.SCRAPE_FAIL_ON_PAGE_ERROR === 'true';
+const MAX_JOB_EVENTS = parseIntegerEnv('MAX_JOB_EVENTS', 1_000, { min: 1 });
+const JOB_TTL_MS = parseIntegerEnv('JOB_TTL_MS', 10 * 60 * 1000, { min: 1 });
 
 // ─── In-memory job store ───────────────────────────────────────────
 // Each job: { events, listeners, done, controller }
@@ -50,6 +64,13 @@ function assertOptionalString(value, keyName) {
   }
 }
 
+function assertOptionalNonNegativeInteger(value, keyName) {
+  if (value == null) return;
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`"${keyName}" must be a non-negative integer.`);
+  }
+}
+
 function assertValidApiConfig({
   url,
   container,
@@ -62,6 +83,10 @@ function assertValidApiConfig({
   nextUrlAttribute,
   nextSiblingSelector,
   urlTemplate,
+  retryAttempts,
+  retryDelayMs,
+  pageDelayMs,
+  failOnPageError,
 }) {
   if (!url || !container || !item || !fieldsRaw) {
     throw new Error('url, container, item, and fields are required.');
@@ -74,6 +99,12 @@ function assertValidApiConfig({
   assertOptionalString(nextUrlSourceSelector, 'nextUrlSourceSelector');
   assertOptionalString(nextUrlAttribute, 'nextUrlAttribute');
   assertOptionalString(nextSiblingSelector, 'nextSiblingSelector');
+  assertOptionalNonNegativeInteger(retryAttempts, 'retryAttempts');
+  assertOptionalNonNegativeInteger(retryDelayMs, 'retryDelayMs');
+  assertOptionalNonNegativeInteger(pageDelayMs, 'pageDelayMs');
+  if (failOnPageError != null && typeof failOnPageError !== 'boolean') {
+    throw new Error('"failOnPageError" must be a boolean.');
+  }
   if (paginate && strategy === 'url-pattern') {
     if (!String(urlTemplate || '').includes('{page}')) {
       throw new Error('"urlTemplate" must contain {page}.');
@@ -91,6 +122,7 @@ async function runScrape(jobId, config) {
   emitToJob(jobId, { type: 'start' });
 
   const onPage = (page, count) => emitToJob(jobId, { type: 'page', page, count });
+  const onWarning = (warning) => emitToJob(jobId, { type: 'warning', warning });
 
   let items;
   try {
@@ -99,6 +131,7 @@ async function runScrape(jobId, config) {
       allowPrivateNetwork: ALLOW_PRIVATE_NETWORK_TARGETS,
       timeoutMs: SCRAPE_TIMEOUT_MS,
       maxResponseBytes: SCRAPE_MAX_RESPONSE_BYTES,
+      onWarning,
     });
     items = result.items;
   } catch (err) {
@@ -129,7 +162,9 @@ async function runScrape(jobId, config) {
 }
 
 // ─── Routes ───────────────────────────────────────────────────────
-export function createApp() {
+export function createApp(deps = {}) {
+  const readDefaults = deps.loadDefaults ?? loadScrapeDefaults;
+  const readConfig = deps.loadConfig ?? loadScrapeConfig;
   const app = express();
   app.use(express.json());
   app.use(express.static(PUBLIC_DIR));
@@ -140,19 +175,23 @@ export function createApp() {
 
   app.get('/api/defaults', (_req, res) => {
     try {
-      const defaults = loadScrapeDefaults();
+      const defaults = readDefaults();
       res.json(defaults);
-    } catch {
-      res.json({});
+    } catch (err) {
+      res.status(500).json({ error: err.message || 'Could not load defaults.' });
     }
   });
 
   app.get('/api/config', (_req, res) => {
     try {
-      const config = loadScrapeConfig();
+      const config = readConfig();
       res.json(config);
-    } catch {
-      res.json({ defaults: {}, presets: [] });
+    } catch (err) {
+      res.status(500).json({
+        error: err.message || 'Could not load config.',
+        defaults: {},
+        presets: [],
+      });
     }
   });
 
@@ -171,6 +210,10 @@ export function createApp() {
       nextSiblingSelector,
       urlTemplate,
       maxPages = 0,
+      retryAttempts,
+      retryDelayMs,
+      pageDelayMs,
+      failOnPageError,
       output,
     } = req.body;
 
@@ -187,6 +230,10 @@ export function createApp() {
         nextUrlAttribute,
         nextSiblingSelector,
         urlTemplate,
+        retryAttempts,
+        retryDelayMs,
+        pageDelayMs,
+        failOnPageError,
       });
     } catch (err) {
       return res.status(400).json({ error: err.message });
@@ -214,6 +261,11 @@ export function createApp() {
       nextSiblingSelector,
       urlTemplate,
       maxPages,
+      retryAttempts: Number.isInteger(retryAttempts) ? retryAttempts : SCRAPE_RETRY_ATTEMPTS,
+      retryDelayMs: Number.isInteger(retryDelayMs) ? retryDelayMs : SCRAPE_RETRY_DELAY_MS,
+      pageDelayMs: Number.isInteger(pageDelayMs) ? pageDelayMs : SCRAPE_PAGE_DELAY_MS,
+      failOnPageError:
+        typeof failOnPageError === 'boolean' ? failOnPageError : SCRAPE_FAIL_ON_PAGE_ERROR,
       output,
     }).catch((err) => {
       if (isAbortError(err)) {

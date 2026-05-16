@@ -17,12 +17,17 @@ import { paginateByNextLink, paginateByPattern } from './paginator.js';
  * @param {string} [config.nextSiblingSelector]
  * @param {string} [config.urlTemplate]
  * @param {number} [config.maxPages]
+ * @param {number} [config.retryAttempts]
+ * @param {number} [config.retryDelayMs]
+ * @param {number} [config.pageDelayMs]
+ * @param {boolean} [config.failOnPageError]
  * @param {(page:number,count:number)=>void} [onPage]
  * @param {object} [options]
  * @param {AbortSignal} [options.signal]
  * @param {boolean} [options.allowPrivateNetwork]
  * @param {number} [options.timeoutMs]
  * @param {number} [options.maxResponseBytes]
+ * @param {(warning: object)=>void} [options.onWarning]
  * @returns {Promise<{items: object[], fields: Array<{name:string, selector:string}>}>}
  */
 export async function runScrapeJob(config, onPage, options = {}) {
@@ -37,6 +42,8 @@ export async function runScrapeJob(config, onPage, options = {}) {
     allowPrivateNetwork: options.allowPrivateNetwork,
     timeoutMs: options.timeoutMs,
     maxResponseBytes: options.maxResponseBytes,
+    retryAttempts: config.retryAttempts,
+    retryDelayMs: config.retryDelayMs,
   };
 
   let items;
@@ -47,12 +54,20 @@ export async function runScrapeJob(config, onPage, options = {}) {
   } else if (config.strategy === 'next-link') {
     items = await paginateByNextLink(config.url, config.nextSelector, scrapeOpts, onPage, {
       ...fetchOpts,
+      pageDelayMs: config.pageDelayMs,
+      failOnHttpError: config.failOnPageError,
+      onWarning: options.onWarning,
       nextUrlSourceSelector: config.nextUrlSourceSelector,
       nextUrlAttribute: config.nextUrlAttribute,
       nextSiblingSelector: config.nextSiblingSelector,
     });
   } else {
-    items = await paginateByPattern(config.urlTemplate, Number(config.maxPages) || 0, scrapeOpts, onPage, fetchOpts);
+    items = await paginateByPattern(config.urlTemplate, Number(config.maxPages) || 0, scrapeOpts, onPage, {
+      ...fetchOpts,
+      pageDelayMs: config.pageDelayMs,
+      failOnHttpError: config.failOnPageError,
+      onWarning: options.onWarning,
+    });
   }
 
   return { items, fields };

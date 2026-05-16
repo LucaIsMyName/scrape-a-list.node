@@ -22,6 +22,10 @@ const FALLBACK = {
   nextSiblingSelector: '',
   urlTemplate: '',
   maxPages: 0,
+  retryAttempts: 0,
+  retryDelayMs: 0,
+  pageDelayMs: 0,
+  failOnPageError: false,
 };
 
 const SCRAPE_STRING_KEYS = [
@@ -47,14 +51,59 @@ function applyAutoOutputName(out) {
   return out;
 }
 
+function hasOwnKey(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
 function assertConfigObject(raw, source) {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error(`${source} must be a JSON object`);
   }
 }
 
+function assertStringKey(raw, key, source) {
+  if (!hasOwnKey(raw, key)) return;
+  if (typeof raw[key] !== 'string') {
+    throw new Error(`${source}.${key} must be a string`);
+  }
+}
+
+function assertBooleanKey(raw, key, source) {
+  if (!hasOwnKey(raw, key)) return;
+  if (typeof raw[key] !== 'boolean') {
+    throw new Error(`${source}.${key} must be a boolean`);
+  }
+}
+
+function assertNonNegativeIntegerKey(raw, key, source) {
+  if (!hasOwnKey(raw, key)) return;
+  const value = raw[key];
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${source}.${key} must be a non-negative integer`);
+  }
+}
+
+function assertValidStrategy(raw, source) {
+  if (!hasOwnKey(raw, 'strategy')) return;
+  if (raw.strategy !== 'next-link' && raw.strategy !== 'url-pattern') {
+    throw new Error(`${source}.strategy must be "next-link" or "url-pattern"`);
+  }
+}
+
+function validateKnownKeys(raw, source) {
+  for (const k of SCRAPE_STRING_KEYS) assertStringKey(raw, k, source);
+  assertBooleanKey(raw, 'paginate', source);
+  assertBooleanKey(raw, 'failOnPageError', source);
+  assertNonNegativeIntegerKey(raw, 'maxPages', source);
+  assertNonNegativeIntegerKey(raw, 'retryAttempts', source);
+  assertNonNegativeIntegerKey(raw, 'retryDelayMs', source);
+  assertNonNegativeIntegerKey(raw, 'pageDelayMs', source);
+  assertValidStrategy(raw, source);
+}
+
 function normalizeBaseDefaults(raw) {
   assertConfigObject(raw, CONFIG_BASENAME);
+  validateKnownKeys(raw, CONFIG_BASENAME);
   const out = { ...FALLBACK };
 
   for (const k of SCRAPE_STRING_KEYS) {
@@ -71,6 +120,22 @@ function normalizeBaseDefaults(raw) {
     out.maxPages = raw.maxPages;
   }
 
+  if (typeof raw.retryAttempts === 'number' && Number.isFinite(raw.retryAttempts)) {
+    out.retryAttempts = raw.retryAttempts;
+  }
+
+  if (typeof raw.retryDelayMs === 'number' && Number.isFinite(raw.retryDelayMs)) {
+    out.retryDelayMs = raw.retryDelayMs;
+  }
+
+  if (typeof raw.pageDelayMs === 'number' && Number.isFinite(raw.pageDelayMs)) {
+    out.pageDelayMs = raw.pageDelayMs;
+  }
+
+  if (typeof raw.failOnPageError === 'boolean') {
+    out.failOnPageError = raw.failOnPageError;
+  }
+
   if (raw.strategy === 'next-link' || raw.strategy === 'url-pattern') {
     out.strategy = raw.strategy;
   }
@@ -81,6 +146,7 @@ function normalizeBaseDefaults(raw) {
 function normalizePreset(raw, index) {
   const source = `${CONFIG_BASENAME} presets[${index}]`;
   assertConfigObject(raw, source);
+  validateKnownKeys(raw, source);
 
   const presetName = typeof raw.presetName === 'string' ? raw.presetName.trim() : '';
   if (!presetName) {
@@ -101,6 +167,22 @@ function normalizePreset(raw, index) {
 
   if (typeof raw.maxPages === 'number' && Number.isFinite(raw.maxPages)) {
     out.maxPages = raw.maxPages;
+  }
+
+  if (typeof raw.retryAttempts === 'number' && Number.isFinite(raw.retryAttempts)) {
+    out.retryAttempts = raw.retryAttempts;
+  }
+
+  if (typeof raw.retryDelayMs === 'number' && Number.isFinite(raw.retryDelayMs)) {
+    out.retryDelayMs = raw.retryDelayMs;
+  }
+
+  if (typeof raw.pageDelayMs === 'number' && Number.isFinite(raw.pageDelayMs)) {
+    out.pageDelayMs = raw.pageDelayMs;
+  }
+
+  if (typeof raw.failOnPageError === 'boolean') {
+    out.failOnPageError = raw.failOnPageError;
   }
 
   if (raw.strategy === 'next-link' || raw.strategy === 'url-pattern') {

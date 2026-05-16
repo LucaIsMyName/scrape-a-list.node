@@ -46,6 +46,18 @@ Behavior:
 - If required values are missing after merge (`url`, `container`, `item`, `fields`), the CLI exits with a clear error.
 - If the preset name is unknown, the CLI exits and lists available preset names.
 
+### CLI flags
+
+```bash
+node index.js --help
+node index.js --version
+node index.js --preset yourPresetName
+```
+
+- `--help` / `-h`: print usage and available flags.
+- `--version` / `-v`: print the package version.
+- Unknown flags now fail fast with a clear error message.
+
 ### Pagination note for JS-driven websites
 
 Some websites render a visible “next” control without an `href` and compute the next URL via JavaScript. For these pages, keep `strategy: "next-link"` and set:
@@ -62,6 +74,8 @@ The tool will interactively prompt you for:
 3. **Item selector** — CSS selector for each item inside the container (e.g. `.concert-card`)
 4. **Fields** — comma-separated `name:selector` pairs to extract from each item (e.g. `title:.title, date:.date, venue:.venue`)
 5. **Pagination** — whether the list spans multiple pages
+   - `next-link`: asks `nextSelector` plus optional `nextUrlSourceSelector`, `nextUrlAttribute`, `nextSiblingSelector`
+   - `url-pattern`: asks `urlTemplate` and `maxPages`
 6. **Output filename** — by default a timestamped name `list-YYYY-MM-DD-HH-MM-SS.csv` under `output/`. Relative paths without an `output/` prefix are placed in `output/`. Paths that already start with `output/` and absolute paths are left as-is.
 
 A summary is shown before scraping starts so you can confirm everything looks correct. The summary shows the resolved output path (for example `output/list-2026-05-05-14-30-45.csv`).
@@ -94,6 +108,17 @@ Opens a small local server (default [http://127.0.0.1:3000](http://127.0.0.1:300
 - **Security defaults:** GUI mode only allows `http/https` targets and blocks local/private-network URLs by default. To explicitly allow private targets, set `ALLOW_PRIVATE_NETWORK_TARGETS=true`.
 - **Server binding:** GUI binds to `127.0.0.1` by default. Override host/port with `GUI_HOST` and `PORT` if needed.
 - **Network guards:** Requests use default timeout and size limits (`SCRAPE_TIMEOUT_MS`, `SCRAPE_MAX_RESPONSE_BYTES`) to avoid hanging on slow or oversized responses.
+- **Reliability controls:** Configure retries and pacing with `SCRAPE_RETRY_ATTEMPTS`, `SCRAPE_RETRY_DELAY_MS`, `SCRAPE_PAGE_DELAY_MS`, and `SCRAPE_FAIL_ON_PAGE_ERROR`.
+
+### Reliability controls in config
+
+Optional keys in `scrape.defaults.json` and presets:
+- `retryAttempts` (non-negative integer): retries for transient HTTP/network errors per page request.
+- `retryDelayMs` (non-negative integer): delay between retries.
+- `pageDelayMs` (non-negative integer): delay between paginated page requests.
+- `failOnPageError` (boolean): if `true`, stop the run with an error on HTTP page failures during pagination; if `false`, stop pagination and keep data collected so far.
+
+Config validation is now stricter: known keys must use valid types.
 
 ## Architecture
 

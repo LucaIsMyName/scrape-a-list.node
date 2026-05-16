@@ -7,10 +7,22 @@ import { parseScrapeConfig } from '../cli/loadConfig.js';
 test('parseCliArgs reads --preset name', () => {
   const args = parseCliArgs(['--preset', 'diakonie-list']);
   assert.equal(args.preset, 'diakonie-list');
+  assert.equal(args.help, false);
+  assert.equal(args.version, false);
 });
 
 test('parseCliArgs fails when --preset value is missing', () => {
   assert.throws(() => parseCliArgs(['--preset']), /--preset requires a preset name/);
+});
+
+test('parseCliArgs supports --help and --version', () => {
+  const args = parseCliArgs(['--help', '--version']);
+  assert.equal(args.help, true);
+  assert.equal(args.version, true);
+});
+
+test('parseCliArgs fails for unknown flags', () => {
+  assert.throws(() => parseCliArgs(['--wat']), /Unknown argument: --wat/);
 });
 
 test('resolveConfigForPreset throws when merged config is incomplete', () => {

@@ -1,6 +1,6 @@
 {
   "name": "scrape-a-list.node",
-  "version": "2026.05.06.4",
+  "version": "2026.05.16.1",
   "description": "CLI web scraper that extracts any list from any website",
   "type": "module",
   "license": "MIT",
@@ -12,7 +12,9 @@
   "scripts": {
     "start": "node index.js",
     "gui": "node gui/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "lint": "node --check index.js cli/index.js cli/prompts.js cli/loadConfig.js src/*.js gui/server.js",
+    "ci:test": "npm run lint && npm test"
   },
   "dependencies": {
     "axios": "^1.7.0",

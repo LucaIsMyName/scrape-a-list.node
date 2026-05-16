@@ -73,7 +73,12 @@ export async function askPagination(defaults) {
   ]);
 
   if (strategy === 'next-link') {
-    const { nextSelector } = await inquirer.prompt([
+    const {
+      nextSelector,
+      nextUrlSourceSelector,
+      nextUrlAttribute,
+      nextSiblingSelector,
+    } = await inquirer.prompt([
       {
         type: 'input',
         name: 'nextSelector',
@@ -81,8 +86,33 @@ export async function askPagination(defaults) {
         default: defaults.nextSelector || undefined,
         validate: (v) => (v.trim() ? true : 'Selector is required'),
       },
+      {
+        type: 'input',
+        name: 'nextUrlSourceSelector',
+        message: 'Next URL source selector (optional):',
+        default: defaults.nextUrlSourceSelector || undefined,
+      },
+      {
+        type: 'input',
+        name: 'nextUrlAttribute',
+        message: 'Next URL attribute (optional):',
+        default: defaults.nextUrlAttribute || undefined,
+      },
+      {
+        type: 'input',
+        name: 'nextSiblingSelector',
+        message: 'Next sibling selector (optional):',
+        default: defaults.nextSiblingSelector || undefined,
+      },
     ]);
-    return { paginate: true, strategy, nextSelector };
+    return {
+      paginate: true,
+      strategy,
+      nextSelector,
+      nextUrlSourceSelector,
+      nextUrlAttribute,
+      nextSiblingSelector,
+    };
   }
 
   // url-pattern
@@ -130,12 +160,30 @@ export async function confirmSummary(config, options = {}) {
     console.log(`  Pagination: ${config.strategy}`);
     if (config.strategy === 'next-link') {
       console.log(`  Next link:  ${config.nextSelector}`);
+      if (String(config.nextUrlSourceSelector || '').trim()) {
+        console.log(`  Next URL source: ${config.nextUrlSourceSelector}`);
+      }
+      if (String(config.nextUrlAttribute || '').trim()) {
+        console.log(`  Next URL attribute: ${config.nextUrlAttribute}`);
+      }
+      if (String(config.nextSiblingSelector || '').trim()) {
+        console.log(`  Next sibling selector: ${config.nextSiblingSelector}`);
+      }
     } else {
       console.log(`  URL pattern: ${config.urlTemplate}`);
       console.log(`  Max pages:   ${config.maxPages || 'auto'}`);
     }
   } else {
     console.log('  Pagination: no');
+  }
+  if (Number(config.retryAttempts) > 0) {
+    console.log(`  Retries:    ${config.retryAttempts} (delay ${Number(config.retryDelayMs) || 0}ms)`);
+  }
+  if (Number(config.pageDelayMs) > 0) {
+    console.log(`  Page delay: ${config.pageDelayMs}ms`);
+  }
+  if (config.failOnPageError) {
+    console.log('  Fail on page HTTP error: yes');
   }
   console.log(`  Output:     ${config.output}`);
   console.log('----------------------------\n');

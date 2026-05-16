@@ -7,8 +7,15 @@
   "paginate": true,
   "strategy": "next-link",
   "nextSelector": "a.pagination-next",
+  "nextUrlSourceSelector": "",
+  "nextUrlAttribute": "",
+  "nextSiblingSelector": "",
   "urlTemplate": "",
   "maxPages": 0,
+  "retryAttempts": 0,
+  "retryDelayMs": 0,
+  "pageDelayMs": 0,
+  "failOnPageError": false,
   "presets": [
     {
       "presetName": "events-next-link",
@@ -24,7 +31,9 @@
       "presetName": "events-url-pattern",
       "strategy": "url-pattern",
       "urlTemplate": "https://example.com/concerts?page={page}",
-      "maxPages": 5
+      "maxPages": 5,
+      "retryAttempts": 1,
+      "retryDelayMs": 300
     },
     {
       "presetName": "js-driven-next-control",

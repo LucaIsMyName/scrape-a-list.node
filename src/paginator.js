@@ -92,6 +92,31 @@ function resolveNextUrl(
   return null;
 }
 
+async function sleep(ms, signal) {
+  if (!(ms > 0)) return;
+  await new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      const aborted = new Error('Request aborted');
+      aborted.name = 'AbortError';
+      aborted.code = 'ERR_CANCELED';
+      reject(aborted);
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener?.('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      const aborted = new Error('Request aborted');
+      aborted.name = 'AbortError';
+      aborted.code = 'ERR_CANCELED';
+      reject(aborted);
+    };
+    signal?.addEventListener?.('abort', onAbort, { once: true });
+  });
+}
+
 /**
  * Scrapes multiple pages by following a "next page" link.
  *
@@ -109,6 +134,9 @@ export async function paginateByNextLink(startUrl, nextSelector, scrapeOpts, onP
     nextUrlSourceSelector,
     nextUrlAttribute,
     nextSiblingSelector,
+    pageDelayMs = 0,
+    failOnHttpError = false,
+    onWarning,
     ...fetchOpts
   } = options;
   const allItems = [];
@@ -132,7 +160,20 @@ export async function paginateByNextLink(startUrl, nextSelector, scrapeOpts, onP
       if (onPage) onPage(page, items.length);
     } catch (err) {
       if (isAbortError(err)) throw err;
-      if (err.response && err.response.status >= 400) break;
+      if (err.response && err.response.status >= 400) {
+        const warning = {
+          type: 'http-page-error',
+          strategy: 'next-link',
+          page,
+          url: currentUrl,
+          status: err.response.status,
+          statusText: err.response.statusText || '',
+          message: `Stopping after HTTP ${err.response.status} on page ${page}.`,
+        };
+        if (onWarning) onWarning(warning);
+        if (failOnHttpError) throw err;
+        break;
+      }
       throw err;
     }
 
@@ -142,6 +183,9 @@ export async function paginateByNextLink(startUrl, nextSelector, scrapeOpts, onP
       nextSiblingSelector,
     });
     if (!nextUrl) break;
+    if (Number(pageDelayMs) > 0) {
+      await sleep(Number(pageDelayMs), signal);
+    }
     currentUrl = nextUrl;
     page++;
   }
@@ -161,7 +205,13 @@ export async function paginateByNextLink(startUrl, nextSelector, scrapeOpts, onP
  * @returns {Promise<object[]>} All items collected across pages
  */
 export async function paginateByPattern(urlTemplate, maxPages, scrapeOpts, onPage, options = {}) {
-  const { signal, ...fetchOpts } = options;
+  const {
+    signal,
+    pageDelayMs = 0,
+    failOnHttpError = false,
+    onWarning,
+    ...fetchOpts
+  } = options;
   const allItems = [];
   const seenHashes = new Set();
   let page = 1;
@@ -185,11 +235,27 @@ export async function paginateByPattern(urlTemplate, maxPages, scrapeOpts, onPag
 
       allItems.push(...items);
       if (onPage) onPage(page, items.length);
+      if (Number(pageDelayMs) > 0) {
+        await sleep(Number(pageDelayMs), signal);
+      }
       page++;
     } catch (err) {
       if (isAbortError(err)) throw err;
       // If we get a 404 or similar, assume we've run out of pages
-      if (err.response && err.response.status >= 400) break;
+      if (err.response && err.response.status >= 400) {
+        const warning = {
+          type: 'http-page-error',
+          strategy: 'url-pattern',
+          page,
+          url,
+          status: err.response.status,
+          statusText: err.response.statusText || '',
+          message: `Stopping after HTTP ${err.response.status} on page ${page}.`,
+        };
+        if (onWarning) onWarning(warning);
+        if (failOnHttpError) throw err;
+        break;
+      }
       throw err;
     }
   }

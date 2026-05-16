@@ -4,8 +4,7 @@ import { writeFile, rm } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { createApp } from '../gui/server.js';
 
-async function withServer(run) {
-  const app = createApp();
+async function withServer(run, app = createApp()) {
   const server = await new Promise((resolveServer) => {
     const s = app.listen(0, '127.0.0.1', () => resolveServer(s));
   });
@@ -74,6 +73,24 @@ test('GET /api/config returns defaults and presets payload', async () => {
     assert.equal(typeof body.defaults, 'object');
     assert.equal(Array.isArray(body.presets), true);
   });
+});
+
+test('GET /api/config returns explicit 500 payload when config load fails', async () => {
+  const app = createApp({
+    loadConfig: () => {
+      throw new Error('broken config');
+    },
+  });
+  await withServer(
+    async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/config`);
+      assert.equal(response.status, 500);
+      const body = await response.json();
+      assert.equal(typeof body.error, 'string');
+      assert.equal(Array.isArray(body.presets), true);
+    },
+    app,
+  );
 });
 
 test('GET / serves preset selector in GUI markup', async () => {
