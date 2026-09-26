@@ -1,6 +1,7 @@
 import { Parser } from 'json2csv';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join, normalize, isAbsolute } from 'node:path';
+import { dirname, resolve, relative, isAbsolute } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -20,23 +21,39 @@ export function listTimestampBasename(d = new Date()) {
   return `list-${y}${mo}${day}${h}${min}${s}.csv`;
 }
 
+const DEFAULT_OUTPUT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'output');
+
 /**
- * Resolves where the CSV should be written. Relative paths that do not already
- * live under `output/` are placed in `output/` so scrapes do not clutter the repo root.
+ * Resolves a CSV path inside the project output directory.
+ * Absolute paths and any relative path that would leave that directory are rejected.
  *
  * @param {string} filePath
+ * @param {string} [baseDir]
  * @returns {string}
  */
-export function resolveOutputPath(filePath) {
-  const p = String(filePath ?? '').trim();
-  if (!p) return join('output', listTimestampBasename());
-  if (isAbsolute(p)) return normalize(p);
-  const stripped = p.replace(/^[.][/\\]+/, '');
-  const firstSegment = stripped.split(/[/\\]/)[0];
-  if (firstSegment.toLowerCase() === 'output') {
-    return normalize(stripped);
+export function resolveOutputPath(filePath, baseDir = DEFAULT_OUTPUT_DIR) {
+  const root = resolve(baseDir);
+  const raw = String(filePath ?? '').trim();
+  let relativePart = listTimestampBasename();
+
+  if (raw) {
+    if (isAbsolute(raw)) {
+      throw new Error('Output path must stay inside the output directory.');
+    }
+    const parts = raw.replace(/^[.][/\\]+/, '').split(/[/\\]/).filter((part) => part !== '' && part !== '.');
+    if (parts[0]?.toLowerCase() === 'output') parts.shift();
+    if (!parts.length) {
+      throw new Error('Output path must stay inside the output directory.');
+    }
+    relativePart = parts.join('/');
   }
-  return normalize(join('output', stripped));
+
+  const target = resolve(root, relativePart);
+  const rel = relative(root, target);
+  if (!rel || rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error('Output path must stay inside the output directory.');
+  }
+  return target;
 }
 
 /**

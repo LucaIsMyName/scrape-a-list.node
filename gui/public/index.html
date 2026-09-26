@@ -4,1074 +4,300 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>scrape-a-list</title>
+  <script>
+    (function () {
+      var key = 'scrape-a-list-theme';
+      var stored = localStorage.getItem(key);
+      var theme = stored === 'light' || stored === 'dark' ? stored : null;
+      if (!theme) {
+        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --border: #2a2e3e;
-      --accent: #6c63ff;
-      --accent-hover: #8078ff;
-      --text: #e2e4f0;
-      --muted: #7a7f9a;
-      --success: #34d399;
-      --error: #f87171;
-      --warn: #fbbf24;
-      --radius: 8px;
-      --font: 'Inter', system-ui, sans-serif;
-      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    [data-theme='dark'] {
+      color-scheme: dark;
+      --color-bg: #0f1117;
+      --color-surface: #1a1d27;
+      --color-border: #2a2e3e;
+      --color-text: #e2e4f0;
+      --color-muted: #7a7f9a;
+      --color-log: #a8b3cf;
+      --color-row-alt: rgba(255, 255, 255, 0.02);
+      --color-overlay: rgba(0, 0, 0, 0.6);
     }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2.5rem 1rem 4rem;
+    [data-theme='light'] {
+      color-scheme: light;
+      --color-bg: #f4f5f9;
+      --color-surface: #ffffff;
+      --color-border: #dfe3ec;
+      --color-text: #1a1d27;
+      --color-muted: #646b80;
+      --color-log: #4b5563;
+      --color-row-alt: rgba(0, 0, 0, 0.03);
+      --color-overlay: rgba(15, 17, 23, 0.45);
     }
-
-    header {
-      text-align: center;
-      margin-bottom: 2.5rem;
+    #theme-icon-sun,
+    #theme-icon-moon {
+      display: none;
     }
-
-    header h1 {
-      font-size: 1.6rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-    }
-
-    header p {
-      color: var(--muted);
-      margin-top: 0.4rem;
-      font-size: 0.9rem;
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.75rem 2rem;
-      width: 100%;
-      max-width: 680px;
-    }
-
-    .card + .card { margin-top: 1.25rem; }
-
-    .card-title {
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-bottom: 1.25rem;
-    }
-
-    .field { margin-bottom: 1.1rem; }
-    .field:last-child { margin-bottom: 0; }
-
-    label {
+    [data-theme='dark'] #theme-icon-sun {
       display: block;
-      font-size: 0.82rem;
-      font-weight: 500;
-      color: var(--muted);
-      margin-bottom: 0.35rem;
     }
-
-    input[type="text"],
-    input[type="url"],
-    input[type="number"],
-    select {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      color: var(--text);
-      font-size: 0.9rem;
-      padding: 0.55rem 0.75rem;
-      outline: none;
-      transition: border-color 0.15s;
-      font-family: inherit;
+    [data-theme='light'] #theme-icon-moon {
+      display: block;
     }
-
-    input:focus, select:focus { border-color: var(--accent); }
-    input::placeholder { color: var(--muted); opacity: 0.6; }
-
-    .hint {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-top: 0.3rem;
-    }
-
-    /* Toggle */
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .toggle {
-      position: relative;
-      width: 38px;
-      height: 22px;
-      flex-shrink: 0;
-    }
-
-    .toggle input { opacity: 0; width: 0; height: 0; }
-
-    .slider {
-      position: absolute;
-      inset: 0;
-      background: var(--border);
-      border-radius: 999px;
-      transition: background 0.2s;
-      cursor: pointer;
-    }
-
-    .slider::before {
-      content: '';
-      position: absolute;
-      width: 16px;
-      height: 16px;
-      left: 3px;
-      top: 3px;
-      background: var(--text);
-      border-radius: 50%;
-      transition: transform 0.2s;
-    }
-
-    .toggle input:checked + .slider { background: var(--accent); }
-    .toggle input:checked + .slider::before { transform: translateX(16px); }
-    .toggle-label { font-size: 0.9rem; }
-
-    /* Pagination */
-    .pagination-opts { display: none; margin-top: 1.25rem; }
-    .pagination-opts.visible { display: block; }
-    .strategy-pane { display: none; margin-top: 1rem; }
-    .strategy-pane.visible { display: block; }
-
-    .row-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    /* Scrape button */
-    button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      font-family: inherit;
-      font-size: 0.9rem;
-      font-weight: 600;
-      border: none;
-      border-radius: var(--radius);
-      cursor: pointer;
-      transition: background 0.15s, opacity 0.15s;
-    }
-
-    #scrape-btn {
-      width: 100%;
-      padding: 0.7rem 1.25rem;
-      background: var(--accent);
-      color: #fff;
-      margin-top: 1.5rem;
-    }
-
-    #scrape-btn:hover:not(:disabled) { background: var(--accent-hover); }
-    #scrape-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    #scrape-btn .spinner {
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255,255,255,0.35);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      display: none;
-    }
-
-    #scrape-btn.loading .spinner { display: block; }
-    #scrape-btn.loading .btn-label::after { content: 'Scraping…'; }
-    #scrape-btn:not(.loading) .btn-label::after { content: 'Scrape'; }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Inline validation error */
-    #inline-error {
-      display: none;
-      color: var(--error);
-      font-size: 0.875rem;
-      background: rgba(248,113,113,0.08);
-      border: 1px solid rgba(248,113,113,0.25);
-      border-radius: var(--radius);
-      padding: 0.75rem 1rem;
-      margin-top: 1rem;
-    }
-
-    /* ─── Dialog overlay ─────────────────────────────────── */
-    #dialog-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.55);
-      backdrop-filter: blur(2px);
-      z-index: 100;
-    }
-
-    #dialog-overlay.visible { display: block; }
-
-    /* ─── Dialog ─────────────────────────────────────────── */
-    #dialog {
-      display: none;
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 101;
-      width: min(740px, calc(100vw - 2rem));
-      max-height: calc(100vh - 4rem);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      display: none;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    #dialog.visible {
-      display: flex;
-    }
-
-    .dialog-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.9rem 1.25rem;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      gap: 1rem;
-    }
-
-    .dialog-title {
-      font-size: 0.9rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .dialog-title .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--accent);
-      animation: pulse 1.2s ease-in-out infinite;
-      display: inline-block;
-    }
-
-    .dialog-title .dot.done { background: var(--success); animation: none; }
-    .dialog-title .dot.error { background: var(--error); animation: none; }
-    .dialog-title .dot.cancelled { background: var(--warn); animation: none; }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    .dialog-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .icon-btn {
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      background: transparent;
-      color: var(--muted);
-      font-size: 1rem;
-      line-height: 1;
-      border: 1px solid transparent;
-      padding: 0;
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
-    }
-
-    .icon-btn:hover:not(:disabled) {
-      background: var(--border);
-      color: var(--text);
-    }
-
-    .icon-btn:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
-    }
-
-    #dialog-abort-btn {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      font-family: inherit;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
-      padding: 0.35rem 0.65rem;
-      border-radius: 6px;
-      background: rgba(251,191,36,0.12);
-      color: var(--warn);
-      border: 1px solid rgba(251,191,36,0.45);
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
-
-    #dialog-abort-btn.visible { display: inline-flex; }
-    #dialog-abort-btn:hover:not(:disabled) {
-      background: rgba(251,191,36,0.22);
-      border-color: var(--warn);
-    }
-
-    /* Log console */
-    #log {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      line-height: 1.7;
-      padding: 1rem 1.25rem;
-      overflow-y: auto;
-      min-height: 140px;
-      max-height: 260px;
-      background: var(--bg);
-      flex-shrink: 0;
-      color: #a8b3cf;
-    }
-
-    .log-line { white-space: pre; }
-    .log-line.page { color: #a8b3cf; }
-    .log-line.page .log-page-num { color: var(--accent); }
-    .log-line.page .log-count { color: var(--text); }
-    .log-line.info { color: var(--muted); }
-    .log-line.success { color: var(--success); }
-    .log-line.error { color: var(--error); }
-    .log-line.warn { color: var(--warn); }
-
-    /* Dialog result section */
-    #dialog-result {
-      display: none;
-      flex-direction: column;
-      border-top: 1px solid var(--border);
-      overflow: hidden;
-    }
-
-    #dialog-result.visible { display: flex; }
-
-    .result-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      padding: 0.9rem 1.25rem;
-      flex-shrink: 0;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.82rem;
-      font-weight: 600;
-      padding: 0.3rem 0.75rem;
-      border-radius: 999px;
-    }
-
-    .badge.success { background: rgba(52,211,153,0.15); color: var(--success); }
-    .badge.warn    { background: rgba(251,191,36,0.15); color: var(--warn); }
-
-    #download-btn {
-      padding: 0.45rem 1rem;
-      background: var(--accent);
-      color: #fff;
-      font-size: 0.82rem;
-    }
-
-    #download-btn:hover { background: var(--accent-hover); }
-
-    .table-wrap {
-      overflow: auto;
-      max-height: 280px;
-      border-top: 1px solid var(--border);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.8rem;
-    }
-
-    thead th {
-      position: sticky;
-      top: 0;
-      background: var(--surface);
-      padding: 0.55rem 0.8rem;
-      text-align: left;
-      font-weight: 600;
-      color: var(--muted);
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-    }
-
-    tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
-
-    tbody td {
-      padding: 0.5rem 0.8rem;
-      border-bottom: 1px solid var(--border);
-      max-width: 220px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    tbody tr:last-child td { border-bottom: none; }
-
-    .table-note {
-      font-size: 0.72rem;
-      color: var(--muted);
-      padding: 0.45rem 1.25rem 0.75rem;
-      flex-shrink: 0;
-    }
-
-    /* ─── Minimised pill ─────────────────────────────────── */
-    #dialog-pill {
-      display: none;
-      position: fixed;
-      bottom: 1.5rem;
-      right: 1.5rem;
-      z-index: 101;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 0.45rem 1rem 0.45rem 0.75rem;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--text);
-      cursor: pointer;
-      display: none;
-      align-items: center;
-      gap: 0.5rem;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-      transition: background 0.15s;
-    }
-
-    #dialog-pill.visible { display: flex; }
-    #dialog-pill:hover { background: var(--border); }
-    #dialog-pill .pill-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
-    #dialog-pill .pill-dot.error { background: var(--error); }
   </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: 'var(--color-bg)',
+            surface: 'var(--color-surface)',
+            border: 'var(--color-border)',
+            accent: '#6c63ff',
+            'accent-hover': '#8078ff',
+            text: 'var(--color-text)',
+            muted: 'var(--color-muted)',
+            log: 'var(--color-log)',
+            overlay: 'var(--color-overlay)',
+            success: '#34d399',
+            error: '#f87171',
+            warn: '#fbbf24',
+          },
+          fontFamily: {
+            sans: ['Geist', 'system-ui', 'sans-serif'],
+            mono: ['Geist Mono', 'ui-monospace', 'monospace'],
+          },
+          borderRadius: {
+            DEFAULT: '8px',
+          },
+        },
+      },
+    };
+  </script>
 </head>
-<body>
+<body class="min-h-screen bg-bg px-4 pb-24 pt-8 text-text font-sans sm:pb-16 sm:pt-10">
 
-<header>
-  <h1>scrape-a-list</h1>
-  <p>Extract any list from any website and export it as CSV</p>
+<header class="relative mb-8 w-full max-w-[680px] sm:mb-10 mx-auto">
+  <button type="button" id="theme-toggle"
+    class="absolute right-0 top-0 flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-border bg-surface text-muted transition hover:border-accent hover:text-text"
+    aria-label="Switch theme">
+    <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+    </svg>
+    <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+    </svg>
+  </button>
+  <div class="pr-0 pt-12 sm:pt-0 sm:pr-12">
+    <h1 class="text-2xl font-bold tracking-tight sm:text-[1.6rem]">scrape-a-list</h1>
+    <p class="mt-1.5 text-sm text-muted sm:text-[0.9rem]">Extract any list from any website and export it as CSV</p>
+  </div>
 </header>
 
-<!-- Config card -->
-<div class="card">
-  <div class="card-title">Configuration</div>
+<div id="config-banner" class="mb-4 hidden w-full max-w-[680px] rounded-lg border border-warn/40 bg-warn/10 px-4 py-3 text-sm text-warn" role="alert"></div>
 
-  <div class="field">
-    <label for="preset">Preset</label>
-    <select id="preset">
-      <option value="">Global defaults</option>
-    </select>
-  </div>
+<div class="w-full max-w-[680px] mx-auto space-y-5">
 
-  <div class="field">
-    <label for="url">Starting page URL</label>
-    <input type="url" id="url" placeholder="https://example.com/concerts" />
-  </div>
-
-  <div class="row-2">
-    <div class="field">
-      <label for="container">List container selector</label>
-      <input type="text" id="container" placeholder=".event-list" />
-    </div>
-    <div class="field">
-      <label for="item">Item selector</label>
-      <input type="text" id="item" placeholder=".event-card" />
-    </div>
-  </div>
-
-  <div class="field">
-    <label for="fields">Fields <span style="font-weight:400">(name:selector pairs, comma-separated)</span></label>
-    <input type="text" id="fields" placeholder="title:.event-title, date:.event-date, venue:.event-venue" />
-    <p class="hint">Example: <code>title:.title, date:.date, venue:.venue</code></p>
-  </div>
-
-  <div class="field">
-    <label for="output">Output filename <span style="font-weight:400">(optional — auto-named if blank)</span></label>
-    <input type="text" id="output" placeholder="results.csv" />
-  </div>
-</div>
-
-<!-- Pagination card -->
-<div class="card">
-  <div class="card-title">Pagination</div>
-
-  <label class="toggle-row" for="paginate-toggle">
-    <span class="toggle">
-      <input type="checkbox" id="paginate-toggle" />
-      <span class="slider"></span>
-    </span>
-    <span class="toggle-label">This list spans multiple pages</span>
-  </label>
-
-  <div class="pagination-opts" id="pagination-opts">
-    <div class="field">
-      <label for="strategy">Strategy</label>
-      <select id="strategy">
-        <option value="next-link">Follow a "next page" link</option>
-        <option value="url-pattern">URL pattern with {page} placeholder</option>
-      </select>
-    </div>
-
-    <div class="strategy-pane" id="pane-next-link">
-      <div class="field">
-        <label for="next-selector">CSS selector for the "next page" link</label>
-        <input type="text" id="next-selector" placeholder="a.pagination-next" />
+  <section class="rounded-lg border border-border bg-surface p-5 sm:p-7">
+    <h2 class="mb-5 text-xs font-semibold uppercase tracking-wider text-muted">Configuration</h2>
+    <div class="space-y-4">
+      <div>
+        <label for="preset" class="mb-1 block text-sm font-medium text-muted">Preset</label>
+        <select id="preset" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2">
+          <option value="">Global defaults</option>
+        </select>
       </div>
-      <div class="field">
-        <label for="next-url-source-selector">Next URL source selector <span style="font-weight:400">(optional)</span></label>
-        <input type="text" id="next-url-source-selector" placeholder="#dropdown_months option[selected]" />
-        <p class="hint">Use for JS-driven pagination where the visible next control has no href.</p>
+      <div>
+        <label for="url" class="mb-1 block text-sm font-medium text-muted">Starting page URL</label>
+        <input type="url" id="url" placeholder="https://example.com/concerts" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm placeholder:text-muted/60 focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
       </div>
-      <div class="row-2">
-        <div class="field">
-          <label for="next-url-attribute">Next URL attribute <span style="font-weight:400">(optional)</span></label>
-          <input type="text" id="next-url-attribute" placeholder="value" />
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label for="container" class="mb-1 block text-sm font-medium text-muted">List container selector</label>
+          <input type="text" id="container" placeholder=".event-list" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
         </div>
-        <div class="field">
-          <label for="next-sibling-selector">Next sibling selector <span style="font-weight:400">(optional)</span></label>
-          <input type="text" id="next-sibling-selector" placeholder="option" />
+        <div>
+          <label for="item" class="mb-1 block text-sm font-medium text-muted">Item selector</label>
+          <input type="text" id="item" placeholder=".event-card" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
         </div>
       </div>
+      <div>
+        <label for="fields" class="mb-1 block text-sm font-medium text-muted">
+          Fields <span class="font-normal">(name:selector pairs, comma-separated)</span>
+        </label>
+        <input type="text" id="fields" placeholder="title:.event-title, date:.event-date, venue:.event-venue" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+        <p class="mt-1 text-xs text-muted">Example: <code class="text-text/80">title:.title, date:.date, venue:.venue</code></p>
+      </div>
+      <div>
+        <label for="output" class="mb-1 block text-sm font-medium text-muted">
+          Output filename <span class="font-normal">(optional — auto-named if blank)</span>
+        </label>
+        <input type="text" id="output" placeholder="results.csv" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+      </div>
     </div>
+  </section>
 
-    <div class="strategy-pane" id="pane-url-pattern">
-      <div class="field">
-        <label for="url-template">URL template</label>
-        <input type="text" id="url-template" placeholder="https://example.com/concerts?page={page}" />
-        <p class="hint">Must contain <code>{page}</code></p>
+  <section class="rounded-lg border border-border bg-surface p-5 sm:p-7">
+    <h2 class="mb-5 text-xs font-semibold uppercase tracking-wider text-muted">Pagination</h2>
+    <label class="flex cursor-pointer select-none items-center gap-3" for="paginate-toggle">
+      <span class="relative inline-flex h-[22px] w-[38px] shrink-0">
+        <input type="checkbox" id="paginate-toggle" class="peer sr-only" />
+        <span class="absolute inset-0 rounded-full bg-border transition peer-checked:bg-accent"></span>
+        <span class="absolute left-[3px] top-[3px] h-4 w-4 rounded-full bg-text transition peer-checked:translate-x-4"></span>
+      </span>
+      <span class="text-sm sm:text-base">This list spans multiple pages</span>
+    </label>
+
+    <div id="pagination-opts" class="mt-5 hidden space-y-4">
+      <div>
+        <label for="strategy" class="mb-1 block text-sm font-medium text-muted">Strategy</label>
+        <select id="strategy" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2">
+          <option value="next-link">Follow a "next page" link</option>
+          <option value="url-pattern">URL pattern with {page} placeholder</option>
+        </select>
       </div>
-      <div class="field" style="max-width:160px">
-        <label for="max-pages">Max pages <span style="font-weight:400">(0 = auto until pages stop)</span></label>
-        <input type="number" id="max-pages" value="0" min="0" />
+
+      <div id="pane-next-link" class="hidden space-y-4">
+        <div>
+          <label for="next-selector" class="mb-1 block text-sm font-medium text-muted">CSS selector for the "next page" link</label>
+          <input type="text" id="next-selector" placeholder="a.pagination-next" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+        </div>
+        <div>
+          <label for="next-url-source-selector" class="mb-1 block text-sm font-medium text-muted">
+            Next URL source selector <span class="font-normal">(optional)</span>
+          </label>
+          <input type="text" id="next-url-source-selector" placeholder="#dropdown_months option[selected]" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+          <p class="mt-1 text-xs text-muted">Use for JS-driven pagination where the visible next control has no href.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label for="next-url-attribute" class="mb-1 block text-sm font-medium text-muted">
+              Next URL attribute <span class="font-normal">(optional)</span>
+            </label>
+            <input type="text" id="next-url-attribute" placeholder="value" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+          </div>
+          <div>
+            <label for="next-sibling-selector" class="mb-1 block text-sm font-medium text-muted">
+              Next sibling selector <span class="font-normal">(optional)</span>
+            </label>
+            <input type="text" id="next-sibling-selector" placeholder="option" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+          </div>
+        </div>
+      </div>
+
+      <div id="pane-url-pattern" class="hidden space-y-4">
+        <div>
+          <label for="url-template" class="mb-1 block text-sm font-medium text-muted">URL template</label>
+          <input type="text" id="url-template" placeholder="https://example.com/concerts?page={page}" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+          <p class="mt-1 text-xs text-muted">Must contain <code class="text-text/80">{page}</code></p>
+        </div>
+        <div class="max-w-[10rem]">
+          <label for="max-pages" class="mb-1 block text-sm font-medium text-muted">
+            Max pages <span class="font-normal">(0 = auto)</span>
+          </label>
+          <input type="number" id="max-pages" value="0" min="0" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+        </div>
       </div>
     </div>
+  </section>
+
+  <section class="rounded-lg border border-border bg-surface p-5 sm:p-7">
+    <button type="button" id="advanced-toggle" aria-expanded="false" class="flex w-full items-center justify-between text-left text-xs font-semibold uppercase tracking-wider text-muted">
+      <span>Advanced</span>
+      <span aria-hidden="true">▼</span>
+    </button>
+    <div id="advanced-panel" class="mt-4 hidden space-y-4 border-t border-border pt-4">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label for="retry-attempts" class="mb-1 block text-sm font-medium text-muted">Retries per request</label>
+          <input type="number" id="retry-attempts" min="0" placeholder="Server default" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+        </div>
+        <div>
+          <label for="retry-delay-ms" class="mb-1 block text-sm font-medium text-muted">Retry delay (ms)</label>
+          <input type="number" id="retry-delay-ms" min="0" placeholder="Server default" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+        </div>
+      </div>
+      <div class="max-w-[10rem]">
+        <label for="page-delay-ms" class="mb-1 block text-sm font-medium text-muted">Delay between pages (ms)</label>
+        <input type="number" id="page-delay-ms" min="0" placeholder="Server default" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+      </div>
+      <label class="flex cursor-pointer select-none items-center gap-3" for="fail-on-page-error">
+        <input type="checkbox" id="fail-on-page-error" class="h-4 w-4 rounded border-border bg-bg text-accent focus:ring-accent" />
+        <span class="text-sm">Fail the run on HTTP errors during pagination</span>
+      </label>
+      <p class="text-xs text-muted">Leave retry fields empty to use server environment defaults.</p>
+    </div>
+  </section>
+
+  <div class="sticky bottom-0 z-10 -mx-4 border-t border-border/80 bg-bg/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+    <button id="scrape-btn" type="button" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50">
+      <span id="scrape-btn-spinner" class="hidden h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white"></span>
+      <span id="scrape-btn-label">Scrape</span>
+    </button>
+    <div id="inline-error" class="mt-3 hidden rounded-lg border border-error/25 bg-error/10 px-4 py-3 text-sm text-error" role="alert"></div>
   </div>
 </div>
 
-<div style="width:100%;max-width:680px">
-  <button id="scrape-btn" type="button">
-    <span class="spinner"></span>
-    <span class="btn-label"></span>
-  </button>
-  <div id="inline-error"></div>
-</div>
+<div id="dialog-overlay" class="fixed inset-0 z-40 hidden bg-overlay backdrop-blur-[2px]" aria-hidden="true"></div>
 
-<!-- Dialog overlay -->
-<div id="dialog-overlay"></div>
+<div id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title-text"
+  class="fixed z-50 flex hidden max-h-[min(85vh,calc(100dvh-1.5rem))] w-[calc(100vw-1.5rem)] max-w-none flex-col overflow-hidden rounded-lg border border-border bg-surface
+         inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] bottom-[max(0.75rem,env(safe-area-inset-bottom))]
+         sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[min(740px,calc(100vw-2rem))] sm:max-w-[740px] sm:-translate-x-1/2 sm:-translate-y-1/2">
 
-<!-- Progress / result dialog -->
-<div id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title-text">
-  <div class="dialog-header">
-    <div class="dialog-title">
-      <span class="dot" id="dialog-dot"></span>
-      <span id="dialog-title-text">Scraping…</span>
+  <div class="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+    <div class="flex min-w-0 flex-col gap-0.5">
+      <div class="flex items-center gap-2 text-sm font-semibold">
+        <span id="dialog-dot" class="h-2 w-2 shrink-0 rounded-full bg-accent animate-pulse"></span>
+        <span id="dialog-title-text" class="truncate">Scraping…</span>
+      </div>
+      <span id="dialog-stats" class="hidden text-xs text-muted"></span>
     </div>
-    <div class="dialog-actions">
-      <button type="button" id="dialog-abort-btn" title="Stop scraping">Stop</button>
-      <button class="icon-btn" id="dialog-minimize-btn" title="Minimise" aria-label="Minimise">—</button>
-      <button class="icon-btn" id="dialog-close-btn" title="Close" aria-label="Close" disabled>✕</button>
+    <div class="flex shrink-0 items-center gap-1">
+      <button type="button" id="dialog-abort-btn" aria-label="Stop scraping" title="Stop scraping"
+        class="hidden items-center justify-center rounded-md border border-warn/45 bg-warn/10 px-2.5 py-1.5 text-[0.72rem] font-bold uppercase tracking-wide text-warn hover:bg-warn/20">
+        Stop
+      </button>
+      <button type="button" id="dialog-minimize-btn" title="Minimise" aria-label="Minimise"
+        class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted hover:border-border hover:bg-border hover:text-text">—</button>
+      <button type="button" id="dialog-close-btn" title="Close" aria-label="Close" disabled
+        class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-muted hover:border-border hover:bg-border hover:text-text disabled:cursor-not-allowed disabled:opacity-30">✕</button>
     </div>
   </div>
 
-  <div id="log" aria-live="polite" aria-label="Scrape log"></div>
+  <div id="log" aria-live="polite" aria-label="Scrape log"
+    class="min-h-[120px] min-h-0 flex-1 overflow-y-auto bg-bg px-4 py-3 font-mono text-xs leading-relaxed text-log sm:max-h-[260px] sm:flex-none"></div>
 
-  <div id="dialog-result">
-    <div class="result-bar">
-      <span class="badge success" id="result-badge"></span>
-      <button id="download-btn" type="button">⬇ Download CSV</button>
+  <div id="dialog-result" class="hidden min-h-0 flex-col overflow-hidden border-t border-border">
+    <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+      <span id="result-badge" class="inline-flex items-center rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success"></span>
+      <button id="download-btn" type="button" class="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white hover:bg-accent-hover">Download CSV</button>
     </div>
-    <div class="table-wrap">
-      <table>
+    <div class="max-h-[min(280px,40vh)] overflow-auto border-t border-border">
+      <table class="w-full border-collapse text-xs">
         <thead id="preview-head"></thead>
         <tbody id="preview-body"></tbody>
       </table>
     </div>
-    <p class="table-note" id="table-note"></p>
+    <p id="table-note" class="shrink-0 px-4 py-2 text-[0.72rem] text-muted sm:px-5"></p>
   </div>
 </div>
 
-<!-- Minimised pill -->
-<div id="dialog-pill" role="button" tabindex="0" aria-label="Reopen last scrape result">
-  <span class="pill-dot" id="pill-dot"></span>
+<div id="dialog-pill" role="button" tabindex="0" aria-label="Reopen last scrape result"
+  class="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-50 hidden -translate-x-1/2 cursor-pointer items-center gap-2 rounded-full border border-border bg-surface px-4 py-2.5 text-sm font-semibold shadow-lg transition hover:bg-border sm:right-6 sm:left-auto sm:translate-x-0">
+  <span id="pill-dot" class="h-2 w-2 shrink-0 rounded-full bg-success"></span>
   <span id="pill-label">Last scrape</span>
-  <span>▲</span>
+  <span aria-hidden="true">▲</span>
 </div>
 
-<script>
-  // ─── Pagination UI ────────────────────────────────────────────────
-  function updatePaginationUI(on) {
-    document.getElementById('pagination-opts').classList.toggle('visible', on);
-    if (on) updateStrategyUI(document.getElementById('strategy').value);
-  }
-
-  function updateStrategyUI(val) {
-    document.getElementById('pane-next-link').classList.toggle('visible', val === 'next-link');
-    document.getElementById('pane-url-pattern').classList.toggle('visible', val === 'url-pattern');
-  }
-
-  document.getElementById('paginate-toggle').addEventListener('change', e => updatePaginationUI(e.target.checked));
-  document.getElementById('strategy').addEventListener('change', e => updateStrategyUI(e.target.value));
-
-  // ─── Dialog helpers ───────────────────────────────────────────────
-  const overlay      = document.getElementById('dialog-overlay');
-  const dialog       = document.getElementById('dialog');
-  const dialogDot    = document.getElementById('dialog-dot');
-  const dialogTitle  = document.getElementById('dialog-title-text');
-  const logEl        = document.getElementById('log');
-  const dialogResult = document.getElementById('dialog-result');
-  const closeBtnEl   = document.getElementById('dialog-close-btn');
-  const minBtnEl     = document.getElementById('dialog-minimize-btn');
-  const abortBtnEl   = document.getElementById('dialog-abort-btn');
-  const pill         = document.getElementById('dialog-pill');
-  const pillDot      = document.getElementById('pill-dot');
-  const pillLabel    = document.getElementById('pill-label');
-
-  let lastCsvPath = null;
-  let scraping    = false;
-  let activeJobId = null;
-  let loadedConfig = { defaults: {}, presets: [] };
-
-  function setAbortVisible(show) {
-    abortBtnEl.classList.toggle('visible', !!show);
-  }
-
-  function openDialog() {
-    overlay.classList.add('visible');
-    dialog.classList.add('visible');
-    pill.classList.remove('visible');
-  }
-
-  function minimizeDialog() {
-    overlay.classList.remove('visible');
-    dialog.classList.remove('visible');
-    pill.classList.add('visible');
-  }
-
-  function closeDialog() {
-    overlay.classList.remove('visible');
-    dialog.classList.remove('visible');
-    pill.classList.remove('visible');
-  }
-
-  function restoreDialog() {
-    pill.classList.remove('visible');
-    overlay.classList.add('visible');
-    dialog.classList.add('visible');
-  }
-
-  function resetDialog() {
-    logEl.replaceChildren();
-    dialogResult.classList.remove('visible');
-    document.getElementById('preview-head').replaceChildren();
-    document.getElementById('preview-body').replaceChildren();
-    document.getElementById('table-note').textContent = '';
-    dialogDot.className = 'dot';
-    dialogTitle.textContent = 'Scraping…';
-    closeBtnEl.disabled = true;
-    lastCsvPath = null;
-    setAbortVisible(false);
-    activeJobId = null;
-  }
-
-  function appendLog(text, cls = 'info') {
-    const line = document.createElement('div');
-    line.className = `log-line ${cls}`;
-    line.textContent = text;
-    logEl.appendChild(line);
-    logEl.scrollTop = logEl.scrollHeight;
-  }
-
-  function appendPageLog(page, count) {
-    const line = document.createElement('div');
-    line.className = 'log-line page';
-    const prefix = document.createTextNode('  Page ');
-    const pageEl = document.createElement('span');
-    pageEl.className = 'log-page-num';
-    pageEl.textContent = String(page);
-    const mid = document.createTextNode(': ');
-    const countEl = document.createElement('span');
-    countEl.className = 'log-count';
-    countEl.textContent = String(count);
-    const suffix = document.createTextNode(` item${count !== 1 ? 's' : ''}`);
-    line.append(prefix, pageEl, mid, countEl, suffix);
-    logEl.appendChild(line);
-    logEl.scrollTop = logEl.scrollHeight;
-  }
-
-  function markDone(success) {
-    dialogDot.className = `dot ${success ? 'done' : 'error'}`;
-    scraping = false;
-    closeBtnEl.disabled = false;
-  }
-
-  function markCancelled() {
-    dialogDot.className = 'dot cancelled';
-    scraping = false;
-    closeBtnEl.disabled = false;
-  }
-
-  // ─── Dialog buttons ───────────────────────────────────────────────
-  minBtnEl.addEventListener('click', minimizeDialog);
-
-  abortBtnEl.addEventListener('click', () => {
-    if (!activeJobId) return;
-    fetch(`/api/scrape/cancel/${encodeURIComponent(activeJobId)}`, { method: 'POST' })
-      .catch(() => {});
-  });
-
-  closeBtnEl.addEventListener('click', () => {
-    if (!scraping) closeDialog();
-  });
-
-  pill.addEventListener('click', restoreDialog);
-  pill.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') restoreDialog(); });
-
-  // Close on overlay click only when not scraping
-  overlay.addEventListener('click', () => { if (!scraping) closeDialog(); });
-
-  // ─── Validation error helper ──────────────────────────────────────
-  function showInlineError(msg) {
-    const el = document.getElementById('inline-error');
-    el.textContent = msg;
-    el.style.display = 'block';
-  }
-
-  function clearInlineError() {
-    const el = document.getElementById('inline-error');
-    el.style.display = 'none';
-    el.textContent = '';
-  }
-
-  // ─── Result rendering ─────────────────────────────────────────────
-  function renderResult(count, preview, csvPath) {
-    lastCsvPath = csvPath;
-
-    document.getElementById('result-badge').textContent =
-      `✓ ${count} item${count !== 1 ? 's' : ''} scraped`;
-
-    const head = document.getElementById('preview-head');
-    const body = document.getElementById('preview-body');
-
-    if (preview && preview.length) {
-      const cols = Object.keys(preview[0]);
-
-      const tr = document.createElement('tr');
-      cols.forEach(c => {
-        const th = document.createElement('th');
-        th.textContent = c;
-        tr.appendChild(th);
-      });
-      head.appendChild(tr);
-
-      preview.forEach(row => {
-        const tr = document.createElement('tr');
-        cols.forEach(c => {
-          const td = document.createElement('td');
-          td.textContent = row[c] ?? '';
-          td.title = row[c] ?? '';
-          tr.appendChild(td);
-        });
-        body.appendChild(tr);
-      });
-    }
-
-    document.getElementById('table-note').textContent =
-      count > 20 ? `Showing first 20 of ${count} rows.` : '';
-
-    dialogResult.classList.add('visible');
-  }
-
-  document.getElementById('download-btn').addEventListener('click', () => {
-    if (lastCsvPath) {
-      window.location.href = `/api/download?file=${encodeURIComponent(lastCsvPath)}`;
-    }
-  });
-
-  // ─── Main scrape handler ──────────────────────────────────────────
-  document.getElementById('scrape-btn').addEventListener('click', async () => {
-    clearInlineError();
-
-    const paginate = document.getElementById('paginate-toggle').checked;
-    const strategy = document.getElementById('strategy').value;
-
-    const body = {
-      url:          document.getElementById('url').value.trim(),
-      container:    document.getElementById('container').value.trim(),
-      item:         document.getElementById('item').value.trim(),
-      fields:       document.getElementById('fields').value.trim(),
-      output:       document.getElementById('output').value.trim(),
-      paginate,
-      strategy,
-      nextSelector: document.getElementById('next-selector').value.trim(),
-      nextUrlSourceSelector: document.getElementById('next-url-source-selector').value.trim(),
-      nextUrlAttribute: document.getElementById('next-url-attribute').value.trim(),
-      nextSiblingSelector: document.getElementById('next-sibling-selector').value.trim(),
-      urlTemplate:  document.getElementById('url-template').value.trim(),
-      maxPages:     Number(document.getElementById('max-pages').value) || 0,
-    };
-
-    // Client-side validation (shows inline error, not dialog)
-    if (!body.url) return showInlineError('Please enter a starting page URL.');
-    try { new URL(body.url); } catch { return showInlineError('Please enter a valid URL.'); }
-    if (!body.container) return showInlineError('Container selector is required.');
-    if (!body.item)      return showInlineError('Item selector is required.');
-    if (!body.fields)    return showInlineError('At least one field is required.');
-    if (paginate && strategy === 'next-link' && !body.nextSelector)
-      return showInlineError('"Next page" selector is required.');
-    if (paginate && strategy === 'url-pattern' && !body.urlTemplate.includes('{page}'))
-      return showInlineError('URL template must contain {page}.');
-
-    // Open dialog, reset state
-    resetDialog();
-    openDialog();
-    scraping = true;
-
-    const btn = document.getElementById('scrape-btn');
-    btn.disabled = true;
-    btn.classList.add('loading');
-
-    // Update pill summary for "in progress"
-    pillLabel.textContent = 'Scraping in progress…';
-    pillDot.className = 'pill-dot';
-
-    // Step 1: POST config → receive jobId
-    let jobId;
-    try {
-      const postRes = await fetch('/api/scrape', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = await postRes.json();
-
-      if (!postRes.ok) {
-        appendLog('Error: ' + (data.error || 'Unknown error'), 'error');
-        dialogTitle.textContent = 'Error';
-        markDone(false);
-        pillDot.className = 'pill-dot error';
-        pillLabel.textContent = 'Error — click to view';
-        btn.disabled = false;
-        btn.classList.remove('loading');
-        scraping = false;
-        return;
-      }
-
-      jobId = data.jobId;
-      if (!jobId || typeof jobId !== 'string') {
-        appendLog(
-          'Server response missing jobId. Stop and restart the GUI server (Ctrl+C, then npm run gui) so it loads the latest gui/server.js.',
-          'error',
-        );
-        dialogTitle.textContent = 'Error';
-        markDone(false);
-        pillDot.className = 'pill-dot error';
-        pillLabel.textContent = 'Error — click to view';
-        btn.disabled = false;
-        btn.classList.remove('loading');
-        scraping = false;
-        return;
-      }
-    } catch (err) {
-      appendLog('Network error: ' + err.message, 'error');
-      dialogTitle.textContent = 'Error';
-      markDone(false);
-      pillDot.className = 'pill-dot error';
-      pillLabel.textContent = 'Error — click to view';
-      btn.disabled = false;
-      btn.classList.remove('loading');
-      scraping = false;
-      return;
-    }
-
-    // Step 2: EventSource → live SSE events
-    let esStreamDone = false;
-    activeJobId = jobId;
-    setAbortVisible(true);
-
-    const es = new EventSource(`/api/scrape/events/${encodeURIComponent(jobId)}`);
-
-    es.onmessage = (e) => {
-      let event;
-      try { event = JSON.parse(e.data); } catch { return; }
-
-      if (event.type === 'start') {
-        appendLog('Starting scrape…', 'info');
-
-      } else if (event.type === 'page') {
-        appendPageLog(event.page, event.count);
-
-      } else if (event.type === 'done') {
-        esStreamDone = true;
-        es.close();
-        setAbortVisible(false);
-        activeJobId = null;
-        btn.disabled = false;
-        btn.classList.remove('loading');
-        scraping = false;
-
-        if (event.count === 0) {
-          appendLog('No items found. Check your selectors and try again.', 'error');
-          dialogTitle.textContent = 'No results';
-          dialogDot.className = 'dot error';
-          closeBtnEl.disabled = false;
-          pillDot.className = 'pill-dot error';
-          pillLabel.textContent = 'No results';
-        } else {
-          appendLog(`Done. Total: ${event.count} item${event.count !== 1 ? 's' : ''}.`, 'success');
-          dialogTitle.textContent = `Done — ${event.count} items`;
-          markDone(true);
-          renderResult(event.count, event.preview, event.csvPath);
-          pillDot.className = 'pill-dot';
-          pillLabel.textContent = `Last scrape: ${event.count} items`;
-        }
-
-      } else if (event.type === 'error') {
-        esStreamDone = true;
-        es.close();
-        setAbortVisible(false);
-        activeJobId = null;
-        btn.disabled = false;
-        btn.classList.remove('loading');
-        scraping = false;
-        appendLog('Error: ' + event.message, 'error');
-        dialogTitle.textContent = 'Error';
-        markDone(false);
-        pillDot.className = 'pill-dot error';
-        pillLabel.textContent = 'Error — click to view';
-
-      } else if (event.type === 'warning') {
-        const msg = event.warning?.message || 'A warning occurred during scraping.';
-        appendLog('Warning: ' + msg, 'warn');
-
-      } else if (event.type === 'cancelled') {
-        esStreamDone = true;
-        es.close();
-        setAbortVisible(false);
-        activeJobId = null;
-        btn.disabled = false;
-        btn.classList.remove('loading');
-        appendLog('Scrape cancelled. No CSV was written.', 'warn');
-        dialogTitle.textContent = 'Cancelled';
-        markCancelled();
-        pillDot.className = 'pill-dot';
-        pillLabel.textContent = 'Cancelled';
-      }
-    };
-
-    es.onerror = () => {
-      es.close();
-      setAbortVisible(false);
-      activeJobId = null;
-      btn.disabled = false;
-      btn.classList.remove('loading');
-      scraping = false;
-      // EventSource fires onerror when the stream ends normally — ignore then
-      if (esStreamDone) return;
-      if (!closeBtnEl.disabled) return;
-      appendLog('Connection lost.', 'error');
-      dialogTitle.textContent = 'Error';
-      markDone(false);
-      pillDot.className = 'pill-dot error';
-      pillLabel.textContent = 'Error — click to view';
-    };
-  }); // end scrape-btn click
-
-  function applyConfigToForm(d) {
-    document.getElementById('url').value = d.url || '';
-    document.getElementById('container').value = d.container || '';
-    document.getElementById('item').value = d.item || '';
-    document.getElementById('fields').value = d.fields || '';
-    document.getElementById('output').value = d.output || '';
-    document.getElementById('paginate-toggle').checked = Boolean(d.paginate);
-    updatePaginationUI(Boolean(d.paginate));
-    const strategy = d.strategy || 'next-link';
-    document.getElementById('strategy').value = strategy;
-    updateStrategyUI(strategy);
-    document.getElementById('next-selector').value = d.nextSelector || '';
-    document.getElementById('next-url-source-selector').value = d.nextUrlSourceSelector || '';
-    document.getElementById('next-url-attribute').value = d.nextUrlAttribute || '';
-    document.getElementById('next-sibling-selector').value = d.nextSiblingSelector || '';
-    document.getElementById('url-template').value = d.urlTemplate || '';
-    document.getElementById('max-pages').value = d.maxPages != null ? d.maxPages : 0;
-  }
-
-  function getEffectiveConfigFromPreset(presetName) {
-    const defaults = loadedConfig.defaults || {};
-    if (!presetName) return { ...defaults };
-    const selected = (loadedConfig.presets || []).find(p => p.presetName === presetName);
-    if (!selected) return { ...defaults };
-    const { presetName: _ignoredPresetName, ...presetValues } = selected;
-    return { ...defaults, ...presetValues };
-  }
-
-  function populatePresetOptions() {
-    const presetEl = document.getElementById('preset');
-    presetEl.replaceChildren();
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = 'Global defaults';
-    presetEl.appendChild(defaultOption);
-
-    for (const preset of loadedConfig.presets || []) {
-      const option = document.createElement('option');
-      option.value = preset.presetName;
-      option.textContent = preset.presetName;
-      presetEl.appendChild(option);
-    }
-  }
-
-  // ─── Load config and presets ──────────────────────────────────────
-  async function loadDefaults() {
-    try {
-      const r = await fetch('/api/config');
-      if (!r.ok) return;
-      const config = await r.json();
-      loadedConfig = {
-        defaults: config?.defaults || {},
-        presets: Array.isArray(config?.presets) ? config.presets : [],
-      };
-      populatePresetOptions();
-      applyConfigToForm(getEffectiveConfigFromPreset(''));
-    } catch { /* no defaults available */ }
-  }
-
-  document.getElementById('preset').addEventListener('change', (e) => {
-    applyConfigToForm(getEffectiveConfigFromPreset(e.target.value));
-  });
-
-  loadDefaults();
-</script>
+<script src="/app.js"></script>
 </body>
 </html>

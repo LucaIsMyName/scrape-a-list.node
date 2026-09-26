@@ -100,7 +100,70 @@ test('GET / serves preset selector in GUI markup', async () => {
     const html = await response.text();
     assert.match(html, /id="preset"/);
     assert.match(html, /id="next-url-source-selector"/);
+    assert.match(html, /cdn\.tailwindcss\.com/);
+    assert.match(html, /id="retry-attempts"/);
+    assert.match(html, /src="\/app\.js"/);
+    assert.match(html, /id="theme-toggle"/);
+    assert.match(html, /id="theme-icon-sun"/);
+    assert.match(html, /id="theme-icon-moon"/);
+    assert.match(html, /scrape-a-list-theme/);
   });
+});
+
+test('GET /api/health returns ok', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/health`);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.ok, true);
+  });
+});
+
+test('POST /api/scrape rejects paginate without valid strategy', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/scrape`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        url: 'https://example.com/list',
+        container: '.list',
+        item: '.item',
+        fields: 'title:.title',
+        paginate: true,
+        strategy: 'invalid',
+      }),
+    });
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.match(body.error, /strategy/i);
+  });
+});
+
+test('POST /api/scrape returns 429 when concurrent job cap is reached', async () => {
+  const jobStore = new Map();
+  jobStore.set('busy', {
+    events: [],
+    listeners: [],
+    done: false,
+    controller: new AbortController(),
+  });
+  const app = createApp({ jobs: jobStore, maxConcurrentJobs: 1 });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/scrape`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        url: 'https://example.com/list',
+        container: '.list',
+        item: '.item',
+        fields: 'title:.title',
+        paginate: false,
+      }),
+    });
+    assert.equal(response.status, 429);
+    const body = await response.json();
+    assert.match(body.error, /Too many scrapes/i);
+  }, app);
 });
 
 test('POST /api/scrape validates advanced next-link fallback field types', async () => {
@@ -122,5 +185,24 @@ test('POST /api/scrape validates advanced next-link fallback field types', async
     assert.equal(response.status, 400);
     const body = await response.json();
     assert.match(body.error, /nextUrlSourceSelector/i);
+  });
+});
+
+test('POST /api/scrape rejects an output path outside the output directory', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/scrape`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        url: 'https://example.com/list',
+        container: '.list',
+        item: '.item',
+        fields: 'title:.title',
+        output: '../secret.csv',
+      }),
+    });
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.match(body.error, /output directory/);
   });
 });

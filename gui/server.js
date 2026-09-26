@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { runScrapeJob } from '../src/orchestrator.js';
 import { parseFields, isAbortError } from '../src/scraper.js';
 import { validateTargetUrl } from '../src/urlSafety.js';
-import { writeCSV } from '../src/csv.js';
+import { resolveOutputPath, writeCSV } from '../src/csv.js';
 import { loadScrapeDefaults, loadScrapeConfig } from '../cli/loadConfig.js';
 
 function parseIntegerEnv(name, fallback, { min = Number.NEGATIVE_INFINITY } = {}) {
@@ -34,13 +34,16 @@ const SCRAPE_PAGE_DELAY_MS = parseIntegerEnv('SCRAPE_PAGE_DELAY_MS', 0, { min: 0
 const SCRAPE_FAIL_ON_PAGE_ERROR = process.env.SCRAPE_FAIL_ON_PAGE_ERROR === 'true';
 const MAX_JOB_EVENTS = parseIntegerEnv('MAX_JOB_EVENTS', 1_000, { min: 1 });
 const JOB_TTL_MS = parseIntegerEnv('JOB_TTL_MS', 10 * 60 * 1000, { min: 1 });
+const MAX_CONCURRENT_JOBS = parseIntegerEnv('MAX_CONCURRENT_JOBS', 2, { min: 1 });
+
+const VALID_STRATEGIES = new Set(['next-link', 'url-pattern']);
 
 // ─── In-memory job store ───────────────────────────────────────────
 // Each job: { events, listeners, done, controller }
 const jobs = new Map();
 
-function emitToJob(jobId, event) {
-  const job = jobs.get(jobId);
+function emitToJob(jobId, event, jobStore = jobs) {
+  const job = jobStore.get(jobId);
   if (!job) return;
   job.events.push(event);
   if (job.events.length > MAX_JOB_EVENTS) {
@@ -49,7 +52,7 @@ function emitToJob(jobId, event) {
   for (const send of job.listeners) send(event);
   if (event.type === 'done' || event.type === 'error' || event.type === 'cancelled') {
     job.done = true;
-    setTimeout(() => jobs.delete(jobId), JOB_TTL_MS);
+    setTimeout(() => jobStore.delete(jobId), JOB_TTL_MS);
   }
 }
 
@@ -71,6 +74,14 @@ function assertOptionalNonNegativeInteger(value, keyName) {
   }
 }
 
+export function countActiveJobs(jobStore = jobs) {
+  let n = 0;
+  for (const job of jobStore.values()) {
+    if (!job.done) n += 1;
+  }
+  return n;
+}
+
 function assertValidApiConfig({
   url,
   container,
@@ -83,16 +94,24 @@ function assertValidApiConfig({
   nextUrlAttribute,
   nextSiblingSelector,
   urlTemplate,
+  maxPages,
   retryAttempts,
   retryDelayMs,
   pageDelayMs,
   failOnPageError,
+  output,
 }) {
   if (!url || !container || !item || !fieldsRaw) {
     throw new Error('url, container, item, and fields are required.');
   }
   validateTargetUrl(url, { allowPrivateNetwork: ALLOW_PRIVATE_NETWORK_TARGETS });
   parseFields(fieldsRaw);
+  if (paginate) {
+    if (!strategy || !VALID_STRATEGIES.has(strategy)) {
+      throw new Error('"strategy" must be "next-link" or "url-pattern" when pagination is enabled.');
+    }
+    assertOptionalNonNegativeInteger(maxPages, 'maxPages');
+  }
   if (paginate && strategy === 'next-link' && !String(nextSelector || '').trim()) {
     throw new Error('"nextSelector" is required for next-link pagination.');
   }
@@ -105,6 +124,10 @@ function assertValidApiConfig({
   if (failOnPageError != null && typeof failOnPageError !== 'boolean') {
     throw new Error('"failOnPageError" must be a boolean.');
   }
+  if (output != null && output !== '') {
+    assertOptionalString(output, 'output');
+    resolveOutputPath(output);
+  }
   if (paginate && strategy === 'url-pattern') {
     if (!String(urlTemplate || '').includes('{page}')) {
       throw new Error('"urlTemplate" must contain {page}.');
@@ -114,15 +137,15 @@ function assertValidApiConfig({
   }
 }
 
-async function runScrape(jobId, config) {
-  const job = jobs.get(jobId);
+async function runScrape(jobId, jobStore, config) {
+  const job = jobStore.get(jobId);
   if (!job) return;
   const { signal } = job.controller;
 
-  emitToJob(jobId, { type: 'start' });
+  emitToJob(jobId, { type: 'start' }, jobStore);
 
-  const onPage = (page, count) => emitToJob(jobId, { type: 'page', page, count });
-  const onWarning = (warning) => emitToJob(jobId, { type: 'warning', warning });
+  const onPage = (page, count) => emitToJob(jobId, { type: 'page', page, count }, jobStore);
+  const onWarning = (warning) => emitToJob(jobId, { type: 'warning', warning }, jobStore);
 
   let items;
   try {
@@ -136,36 +159,47 @@ async function runScrape(jobId, config) {
     items = result.items;
   } catch (err) {
     if (isAbortError(err)) {
-      emitToJob(jobId, { type: 'cancelled' });
+      emitToJob(jobId, { type: 'cancelled' }, jobStore);
       return;
     }
     const status = err.response?.status;
     const msg = status
       ? `HTTP ${status} ${err.response.statusText} — ${config.url}`
       : err.message;
-    emitToJob(jobId, { type: 'error', message: msg });
+    emitToJob(jobId, { type: 'error', message: msg }, jobStore);
     return;
   }
 
   if (signal.aborted) {
-    emitToJob(jobId, { type: 'cancelled' });
+    emitToJob(jobId, { type: 'cancelled' }, jobStore);
     return;
   }
 
   if (!items.length) {
-    emitToJob(jobId, { type: 'done', count: 0, preview: [], csvPath: null });
+    emitToJob(jobId, { type: 'done', count: 0, preview: [], csvPath: null }, jobStore);
     return;
   }
 
   const csvPath = await writeCSV(items, config.output || '');
-  emitToJob(jobId, { type: 'done', count: items.length, preview: items.slice(0, 20), csvPath });
+  emitToJob(
+    jobId,
+    { type: 'done', count: items.length, preview: items.slice(0, 20), csvPath },
+    jobStore,
+  );
 }
 
 // ─── Routes ───────────────────────────────────────────────────────
 export function createApp(deps = {}) {
   const readDefaults = deps.loadDefaults ?? loadScrapeDefaults;
   const readConfig = deps.loadConfig ?? loadScrapeConfig;
+  const jobStore = deps.jobs ?? jobs;
+  const maxConcurrent = deps.maxConcurrentJobs ?? MAX_CONCURRENT_JOBS;
   const app = express();
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'same-origin');
+    next();
+  });
   app.use(express.json());
   app.use(express.static(PUBLIC_DIR));
 
@@ -180,6 +214,10 @@ export function createApp(deps = {}) {
     } catch (err) {
       res.status(500).json({ error: err.message || 'Could not load defaults.' });
     }
+  });
+
+  app.get('/api/health', (_req, res) => {
+    res.json({ ok: true });
   });
 
   app.get('/api/config', (_req, res) => {
@@ -234,13 +272,21 @@ export function createApp(deps = {}) {
         retryDelayMs,
         pageDelayMs,
         failOnPageError,
+        output,
+        maxPages,
       });
     } catch (err) {
       return res.status(400).json({ error: err.message });
     }
 
+    if (countActiveJobs(jobStore) >= maxConcurrent) {
+      return res.status(429).json({
+        error: 'Too many scrapes running. Wait for the current job to finish or cancel it.',
+      });
+    }
+
     const jobId = randomUUID();
-    jobs.set(jobId, {
+    jobStore.set(jobId, {
       events: [],
       listeners: [],
       done: false,
@@ -248,7 +294,7 @@ export function createApp(deps = {}) {
     });
 
     // Fire-and-forget — errors are routed back through emitToJob
-    runScrape(jobId, {
+    runScrape(jobId, jobStore, {
       url,
       container,
       item,
@@ -269,9 +315,9 @@ export function createApp(deps = {}) {
       output,
     }).catch((err) => {
       if (isAbortError(err)) {
-        emitToJob(jobId, { type: 'cancelled' });
+        emitToJob(jobId, { type: 'cancelled' }, jobStore);
       } else {
-        emitToJob(jobId, { type: 'error', message: err.message });
+        emitToJob(jobId, { type: 'error', message: err.message }, jobStore);
       }
     });
 
@@ -279,7 +325,7 @@ export function createApp(deps = {}) {
   });
 
   app.post('/api/scrape/cancel/:jobId', (req, res) => {
-    const job = jobs.get(req.params.jobId);
+    const job = jobStore.get(req.params.jobId);
     if (!job) return res.status(404).json({ error: 'Job not found.' });
     if (job.done) return res.status(409).json({ error: 'Job already finished.' });
     job.controller.abort();
@@ -288,7 +334,7 @@ export function createApp(deps = {}) {
 
   // Step 2: SSE event stream — browser opens this with EventSource
   app.get('/api/scrape/events/:jobId', (req, res) => {
-    const job = jobs.get(req.params.jobId);
+    const job = jobStore.get(req.params.jobId);
     if (!job) return res.status(404).json({ error: 'Job not found.' });
 
     res.setHeader('Content-Type', 'text/event-stream');

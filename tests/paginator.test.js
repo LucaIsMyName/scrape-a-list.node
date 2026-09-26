@@ -29,6 +29,8 @@ test('paginateByNextLink follows links and stops on visited URLs', async () => {
     `http://127.0.0.1:${port}/list?page=1`,
     '.next',
     { container: '.list', item: '.card', fields: [{ name: 'title', selector: '.title' }] },
+    undefined,
+    { allowPrivateNetwork: true },
   );
   assert.deepEqual(items.map((row) => row.title), ['A', 'B', 'C']);
   server.close();
@@ -51,6 +53,8 @@ test('paginateByPattern stops when page returns no items', async () => {
     `http://127.0.0.1:${port}/list?page={page}`,
     0,
     { container: '.list', item: '.card', fields: [{ name: 'title', selector: '.title' }] },
+    undefined,
+    { allowPrivateNetwork: true },
   );
   assert.deepEqual(items.map((row) => row.title), ['P1', 'P2', 'P3']);
   server.close();
@@ -96,6 +100,7 @@ test('paginateByNextLink supports non-href next controls via fallback source', a
       nextUrlSourceSelector: '#dropdown_months option[selected]',
       nextUrlAttribute: 'value',
       nextSiblingSelector: 'option',
+      allowPrivateNetwork: true,
     },
   );
   assert.deepEqual(items.map((row) => row.title), ['May', 'June']);
@@ -129,6 +134,7 @@ test('paginateByNextLink stops gracefully when fallback source has no next targe
       nextUrlSourceSelector: '#dropdown_months option[selected]',
       nextUrlAttribute: 'value',
       nextSiblingSelector: 'option',
+      allowPrivateNetwork: true,
     },
   );
   assert.deepEqual(items.map((row) => row.title), ['June']);
@@ -157,6 +163,7 @@ test('paginateByPattern warns on HTTP error and can fail when configured', async
     undefined,
     {
       onWarning: (warning) => warnings.push(warning),
+      allowPrivateNetwork: true,
     },
   );
   assert.deepEqual(items.map((row) => row.title), ['P1']);
@@ -170,7 +177,7 @@ test('paginateByPattern warns on HTTP error and can fail when configured', async
         0,
         { container: '.list', item: '.card', fields: [{ name: 'title', selector: '.title' }] },
         undefined,
-        { failOnHttpError: true },
+        { failOnHttpError: true, allowPrivateNetwork: true },
       ),
     /Request failed with status code 404/,
   );

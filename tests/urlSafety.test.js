@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateTargetUrl } from '../src/urlSafety.js';
+import { createPublicLookup, validateTargetUrl } from '../src/urlSafety.js';
 
 test('validateTargetUrl allows http and https', () => {
   const httpUrl = validateTargetUrl('http://example.com/path');
@@ -27,4 +27,22 @@ test('validateTargetUrl blocks localhost/private hosts when disabled', () => {
 test('validateTargetUrl allows private hosts when explicitly enabled', () => {
   const url = validateTargetUrl('http://127.0.0.1:3000/list', { allowPrivateNetwork: true });
   assert.equal(url.hostname, '127.0.0.1');
+});
+
+test('validateTargetUrl blocks metadata, unspecified, and mapped loopback addresses', () => {
+  for (const target of [
+    'http://0.0.0.0/',
+    'http://169.254.169.254/hetzner/v1/metadata',
+    'http://100.64.0.1/',
+    'http://[::1]/',
+    'http://[::]/',
+    'http://[::ffff:127.0.0.1]/',
+  ]) {
+    assert.throws(() => validateTargetUrl(target), /private or local network/);
+  }
+});
+
+test('createPublicLookup rejects a hostname that resolves to a private address', async () => {
+  const publicLookup = createPublicLookup(async () => [{ address: '127.0.0.1', family: 4 }]);
+  await assert.rejects(publicLookup('example.com'), /private or local network/);
 });

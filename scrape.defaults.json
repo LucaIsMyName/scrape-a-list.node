@@ -21,17 +21,57 @@
       "nextSelector": "a.page-link.arrow-next"
     },
     {
-      "presetName": "rockhouse-konzerte",
+      "presetName": "Rockhouse Konzerte",
       "url": "https://www.rockhouse.at/Veranstaltungen",
-      "container": ".template_container",
-      "item": ".event.box",
-      "fields": "dateAndLocation:.date, artist:h2, supportArtists:.artists, prices:.prices, location:.location",
-      "paginate": true,
+      "container": "[aria-label='Veranstaltungen']",
+      "item": "[aria-label='Veranstaltungen'] > li",
+      "fields": "dateAndLocation:time, artist:li h3",
+      "paginate": false,
       "strategy": "next-link",
       "nextSelector": "#calendar_navigation_bottom a#next_month",
       "nextUrlSourceSelector": "#dropdown_months option[selected]",
       "nextUrlAttribute": "value",
       "nextSiblingSelector": "option"
+    },
+    {
+      "presetName": "imdb-top-250",
+      "url": "https://www.imdb.com/chart/top/",
+      "container": "body",
+      "item": "li.ipc-metadata-list-summary-item",
+      "fields": "rankingNumber:h3.ipc-title__text, name:h3.ipc-title__text, year:span.cli-title-metadata-item:nth-of-type(1), length:span.cli-title-metadata-item:nth-of-type(2), stars:span.ipc-rating-star--rating",
+      "paginate": false,
+      "strategy": "next-link",
+      "nextSelector": ""
+    },
+    {
+      "presetName": "quotes-toscrape",
+      "url": "http://quotes.toscrape.com/",
+      "container": "body",
+      "item": "div.quote",
+      "fields": "text:.text, author:.author, tags:.tags",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "li.next a"
+    },
+    {
+      "presetName": "books-toscrape",
+      "url": "http://books.toscrape.com/",
+      "container": "ol.row",
+      "item": "li article.product_pod",
+      "fields": "title:h3 a, price:p.price_color, availability:p.instock.availability",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "li.next a"
+    },
+    {
+      "presetName": "hacker-news-front-page",
+      "url": "https://news.ycombinator.com/",
+      "container": "body",
+      "item": "tr.athing",
+      "fields": "rankingNumber:.rank, title:.titleline > a",
+      "paginate": false,
+      "strategy": "next-link",
+      "nextSelector": ""
     }
   ]
 }

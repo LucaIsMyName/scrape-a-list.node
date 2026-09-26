@@ -24,7 +24,7 @@ Interactive prompts are **prefilled** from [`scrape.defaults.json`](scrape.defau
 - **Global keys:** `url`, `container`, `item`, `fields`, `output` (optional; see below), `paginate` (boolean), `strategy` (`"next-link"` or `"url-pattern"`), `nextSelector`, `urlTemplate`, `maxPages` (number; `0` means automatic paging until pages stop, with a safety cap).
 - **Advanced next-link keys (optional):** `nextUrlSourceSelector`, `nextUrlAttribute`, `nextSiblingSelector` for sites where the visible next control has no `href` and the URL lives in another DOM element (for example selected dropdown option + next sibling option).
 - **Presets:** optional `presets` array. Every preset is an object with required `presetName` plus any of the same scrape keys. Preset values override global keys when selected.
-- **Output name:** Omit `output`, set it to `""`, or accept the prompt default to use an automatic name `list-YYYY-MM-DD-HH-MM-SS.csv` (local time). Files are written under `output/` unless you use an `output/...` or absolute path. Set `output` to a non-empty string (e.g. `concerts.csv`) to use a fixed basename instead.
+- **Output name:** Omit `output`, set it to `""`, or accept the prompt default to use an automatic name `list-YYYY-MM-DD-HH-MM-SS.csv` (local time). Every file is written under `output/`. A relative name such as `concerts.csv` or `output/concerts.csv` stays in that directory. Paths that would leave it, including absolute paths, are rejected.
 - **Missing file:** If `scrape.defaults.json` is absent, the CLI warns and uses empty defaults; the default output name is still a fresh `list-YYYY-MM-DD-HH-MM-SS.csv`.
 - **Invalid JSON:** The CLI exits with an error and the path to the file.
 - **Sensitive URLs:** If a default URL should not be committed, add `scrape.defaults.json` to `.gitignore` and keep a private copy locally, or maintain a private overlay workflow outside this repo.
@@ -76,7 +76,7 @@ The tool will interactively prompt you for:
 5. **Pagination** — whether the list spans multiple pages
    - `next-link`: asks `nextSelector` plus optional `nextUrlSourceSelector`, `nextUrlAttribute`, `nextSiblingSelector`
    - `url-pattern`: asks `urlTemplate` and `maxPages`
-6. **Output filename** — by default a timestamped name `list-YYYY-MM-DD-HH-MM-SS.csv` under `output/`. Relative paths without an `output/` prefix are placed in `output/`. Paths that already start with `output/` and absolute paths are left as-is.
+6. **Output filename** — by default a timestamped name `list-YYYY-MM-DD-HH-MM-SS.csv` under `output/`. Relative names are placed in `output/`. Paths that leave that directory are rejected.
 
 A summary is shown before scraping starts so you can confirm everything looks correct. The summary shows the resolved output path (for example `output/list-2026-05-05-14-30-45.csv`).
 
@@ -101,11 +101,11 @@ Result: `output/list-2026-05-05-14-30-45.csv` (timestamp varies) with columns `t
 npm run gui
 ```
 
-Opens a small local server (default [http://127.0.0.1:3000](http://127.0.0.1:3000)) with the same scrape options as the CLI. Progress streams into a dialog; when finished you can download the CSV from there.
+Opens a small local server (default [http://127.0.0.1:3000](http://127.0.0.1:3000)) with the same scrape options as the CLI. The UI uses Tailwind CSS via CDN. Progress streams into a dialog; when finished you can download the CSV from there. An **Advanced** section exposes retries, page delay, and fail-on-page-error; leave fields blank to use server env defaults (`SCRAPE_*` in [`.env.example`](.env.example)).
 
 - **Stop:** While a scrape is running, use **Stop** in the dialog header to cancel. The in-flight page request is aborted and pagination stops; **no CSV file is written** for that run. If the job has already finished, **Stop** is no longer available (the server returns 409 for a second cancel).
 - **Presets:** A preset dropdown appears above the URL field. Selecting a preset applies global defaults overlaid by that preset values (no hardcoded presets in the app).
-- **Security defaults:** GUI mode only allows `http/https` targets and blocks local/private-network URLs by default. To explicitly allow private targets, set `ALLOW_PRIVATE_NETWORK_TARGETS=true`.
+- **Security defaults:** GUI mode only allows `http/https` targets and blocks local/private-network URLs by default, including redirects and hostnames that resolve to those addresses. To explicitly allow private targets, set `ALLOW_PRIVATE_NETWORK_TARGETS=true`.
 - **Server binding:** GUI binds to `127.0.0.1` by default. Override host/port with `GUI_HOST` and `PORT` if needed.
 - **Network guards:** Requests use default timeout and size limits (`SCRAPE_TIMEOUT_MS`, `SCRAPE_MAX_RESPONSE_BYTES`) to avoid hanging on slow or oversized responses.
 - **Reliability controls:** Configure retries and pacing with `SCRAPE_RETRY_ATTEMPTS`, `SCRAPE_RETRY_DELAY_MS`, `SCRAPE_PAGE_DELAY_MS`, and `SCRAPE_FAIL_ON_PAGE_ERROR`.
@@ -119,6 +119,23 @@ Optional keys in `scrape.defaults.json` and presets:
 - `failOnPageError` (boolean): if `true`, stop the run with an error on HTTP page failures during pagination; if `false`, stop pagination and keep data collected so far.
 
 Config validation is now stricter: known keys must use valid types.
+
+## Deploy
+
+The Hetzner site is [https://scrape-a-list.lucamack.at](https://scrape-a-list.lucamack.at). From the project root, one command copies the code and restarts the GUI:
+
+```bash
+./scripts/deploy.sh
+```
+
+Add a basic-auth user, or change a password:
+
+```bash
+./scripts/auth.sh add USERNAME
+./scripts/auth.sh passwd USERNAME
+```
+
+Server layout, logs, and what a redeploy leaves untouched are in [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Architecture
 

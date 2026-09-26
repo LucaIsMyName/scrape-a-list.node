@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { basename, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { listTimestampBasename, resolveOutputPath, toCSV } from '../src/csv.js';
+
+const outputDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'output');
 
 test('listTimestampBasename uses cross-platform safe separators', () => {
   const name = listTimestampBasename(new Date('2026-05-06T14:30:45Z'));
@@ -8,13 +12,15 @@ test('listTimestampBasename uses cross-platform safe separators', () => {
   assert.equal(name.includes(':'), false);
 });
 
-test('resolveOutputPath keeps output-prefixed paths and prefixes other relative ones', () => {
-  assert.match(
-    resolveOutputPath(''),
-    /^output\/list-(\d{14}|\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})\.csv$/,
-  );
-  assert.equal(resolveOutputPath('output/custom.csv'), 'output/custom.csv');
-  assert.equal(resolveOutputPath('custom.csv'), 'output/custom.csv');
+test('resolveOutputPath keeps files inside the output directory', () => {
+  const generated = resolveOutputPath('');
+  assert.equal(dirname(generated), outputDir);
+  assert.match(basename(generated), /^list-\d{14}\.csv$/);
+  assert.equal(resolveOutputPath('output/custom.csv'), resolve(outputDir, 'custom.csv'));
+  assert.equal(resolveOutputPath('custom.csv'), resolve(outputDir, 'custom.csv'));
+  assert.throws(() => resolveOutputPath('../x.csv'), /output directory/);
+  assert.throws(() => resolveOutputPath('output/../../x.csv'), /output directory/);
+  assert.throws(() => resolveOutputPath('/tmp/x.csv'), /output directory/);
 });
 
 test('toCSV includes union of all keys and sanitizes spreadsheet formulas', () => {

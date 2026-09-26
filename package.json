@@ -12,8 +12,9 @@
   "scripts": {
     "start": "node index.js",
     "gui": "node gui/server.js",
+    "deploy": "bash scripts/deploy.sh",
     "test": "node --test",
-    "lint": "node --check index.js cli/index.js cli/prompts.js cli/loadConfig.js src/*.js gui/server.js",
+    "lint": "node --check index.js cli/index.js cli/prompts.js cli/loadConfig.js src/*.js tests/*.js gui/server.js gui/public/app.js",
     "ci:test": "npm run lint && npm test"
   },
   "dependencies": {
