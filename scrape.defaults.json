@@ -21,6 +21,56 @@
       "nextSelector": "a.page-link.arrow-next"
     },
     {
+      "presetName": "Diakonie Offene Stellen",
+      "url": "https://www.diakonie.at/jobplattform/offene-stellen",
+      "container": ".job-offer-list",
+      "item": ".job-offer-item:not(.job-offer-item-breaker)",
+      "fields": "name:.title, location:.location, hours:.hours",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "a.page-link.arrow-next"
+    },
+    {
+      "presetName": "Diakonie News Stories",
+      "url": "https://www.diakonie.at/news-stories",
+      "container": ".news-list",
+      "item": ".news-item",
+      "fields": "name:.title, date:.date, kategorien:.news-label",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "a.page-link.arrow-next"
+    },
+    {
+      "presetName": "Diakonie Freiwilligenbörse",
+      "url": "https://www.diakonie.at/spenden-und-unterstuetzen/freiwilliges-engagement/freiwilligenboerse",
+      "container": ".job-offer-list",
+      "item": ".job-offer-item",
+      "fields": "name:.job-title, location:.location",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "a.page-link.arrow-next"
+    },
+    {
+      "presetName": "Diakonie Veranstaltungen",
+      "url": "https://www.diakonie.at/veranstaltungen",
+      "container": ".event-overview-list",
+      "item": ".grid-item",
+      "fields": "name:.title, subtitle:.subtitle, location:.location, date:.date-time-wrapper",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "a.page-link.arrow-next"
+    },
+    {
+      "presetName": "Diakonie Mediathek",
+      "url": "https://www.diakonie.at/mediathek",
+      "container": ".main-content",
+      "item": ".media",
+      "fields": "name:.title, description:.text, category:.category-label",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "a.page-link.arrow-next"
+    },
+    {
       "presetName": "Rockhouse Konzerte",
       "url": "https://www.rockhouse.at/Veranstaltungen",
       "container": "[aria-label='Veranstaltungen']",
