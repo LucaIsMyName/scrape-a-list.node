@@ -11,7 +11,7 @@
   "maxPages": 0,
   "presets": [
     {
-      "presetName": "diakonie-angebote",
+      "presetName": "Diakonie Angebote",
       "url": "https://www.diakonie.at/unsere-angebote-und-einrichtungen/liste",
       "container": ".facility-list",
       "item": ".card-item ",
@@ -34,7 +34,7 @@
       "nextSiblingSelector": "option"
     },
     {
-      "presetName": "imdb-top-250",
+      "presetName": "IMDB Top 250 (Work in progress)",
       "url": "https://www.imdb.com/chart/top/",
       "container": "body",
       "item": "li.ipc-metadata-list-summary-item",
@@ -44,7 +44,7 @@
       "nextSelector": ""
     },
     {
-      "presetName": "quotes-toscrape",
+      "presetName": "Zitate von quotes.com",
       "url": "http://quotes.toscrape.com/",
       "container": "body",
       "item": "div.quote",
@@ -54,7 +54,7 @@
       "nextSelector": "li.next a"
     },
     {
-      "presetName": "books-toscrape",
+      "presetName": "Bücher von books.toscrape.com",
       "url": "http://books.toscrape.com/",
       "container": "ol.row",
       "item": "li article.product_pod",
@@ -64,7 +64,7 @@
       "nextSelector": "li.next a"
     },
     {
-      "presetName": "hacker-news-front-page",
+      "presetName": "Hacker-News Startseite",
       "url": "https://news.ycombinator.com/",
       "container": "body",
       "item": "tr.athing",

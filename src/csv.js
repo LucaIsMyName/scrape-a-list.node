@@ -56,6 +56,24 @@ export function resolveOutputPath(filePath, baseDir = DEFAULT_OUTPUT_DIR) {
   return target;
 }
 
+/** ASCII and common smart/curly quote characters → straight single quote */
+const QUOTE_CHARS = /["\u201C\u201D\u2018\u2019]/g;
+
+/**
+ * Normalizes quotes in a cell and guards spreadsheet formula injection.
+ *
+ * @param {unknown} value
+ * @returns {unknown}
+ */
+export function sanitizeCellValue(value) {
+  if (typeof value !== 'string') return value;
+  let s = value.replace(QUOTE_CHARS, "'");
+  if (/^[=+\-@]/.test(s)) {
+    s = `'${s}`;
+  }
+  return s;
+}
+
 /**
  * Converts an array of objects to a CSV string.
  *
@@ -68,12 +86,7 @@ export function toCSV(items) {
   const sanitizedItems = items.map((item) => {
     const row = {};
     for (const key of fields) {
-      const value = item[key];
-      if (typeof value === 'string' && /^[=+\-@]/.test(value)) {
-        row[key] = `'${value}`;
-      } else {
-        row[key] = value;
-      }
+      row[key] = sanitizeCellValue(item[key]);
     }
     return row;
   });

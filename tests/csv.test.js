@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { listTimestampBasename, resolveOutputPath, toCSV } from '../src/csv.js';
+import { listTimestampBasename, resolveOutputPath, sanitizeCellValue, toCSV } from '../src/csv.js';
 
 const outputDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'output');
 
@@ -31,4 +31,22 @@ test('toCSV includes union of all keys and sanitizes spreadsheet formulas', () =
   assert.match(csv, /"title","venue","date"/);
   assert.match(csv, /"'=2\+2","A",/);
   assert.match(csv, /"Plain",,"2026-05-06"/);
+});
+
+test('sanitizeCellValue replaces ASCII and curly quotes with single quotes', () => {
+  assert.equal(sanitizeCellValue('"Hello"'), "'Hello'");
+  assert.equal(sanitizeCellValue('“The world…”'), "'The world…'");
+});
+
+test('toCSV normalizes embedded quotes so json2csv does not double-escape', () => {
+  const csv = toCSV([{ text: '"Quote from someone"', author: 'Einstein' }]);
+  assert.doesNotMatch(csv, /""Quote/);
+  assert.match(csv, /'Quote from someone'/);
+  assert.match(csv, /Einstein/);
+});
+
+test('toCSV normalizes curly quotes in scraped text', () => {
+  const csv = toCSV([{ text: '“The world as we have created it.”', author: 'Albert Einstein' }]);
+  assert.doesNotMatch(csv, /\u201C|\u201D/);
+  assert.match(csv, /'The world as we have created it.'/);
 });
