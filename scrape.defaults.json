@@ -122,6 +122,25 @@
       "paginate": true,
       "strategy": "next-link",
       "nextSelector": ".morelink"
+    },
+    {
+      "presetName": "arXiv cs.CL neueste Papers",
+      "url": "https://arxiv.org/list/cs.CL/recent",
+      "container": "dl",
+      "item": "dd",
+      "fields": "title:.list-title, authors:.list-authors, subjects:.list-subjects",
+      "paginate": true,
+      "strategy": "next-link",
+      "nextSelector": "div.paging a",
+      "maxPages": 2
+    },
+    {
+      "presetName": "Top 100 E-Books von Gutenberg",
+      "url": "https://www.gutenberg.org/browse/scores/top",
+      "container": "body",
+      "item": "ol:first-of-type > li",
+      "fields": "title:a, url:a@href",
+      "paginate": false
     }
   ]
 }
