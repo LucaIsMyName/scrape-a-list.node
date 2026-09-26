@@ -1,7 +1,10 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { extractFieldValue } from './extractField.js';
 import { extractImdbChartItems, isBotChallengeHtml } from './htmlFallbacks.js';
 import { createPublicLookup, validateTargetUrl } from './urlSafety.js';
+
+const FIELD_ATTR_SUFFIX = /^(.+)@([A-Za-z][\w-]*)$/;
 
 const DEFAULT_HTTP_TIMEOUT_MS = 15_000;
 const DEFAULT_MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
@@ -78,7 +81,7 @@ async function sleep(ms, signal) {
  * @param {object} opts
  * @param {string} opts.container - CSS selector for the list container
  * @param {string} opts.item - CSS selector for each item inside the container
- * @param {Array<{name: string, selector: string}>} opts.fields - Fields to extract from each item
+ * @param {Array<{name: string, selector: string, attribute?: string}>} opts.fields - Fields to extract from each item
  * @param {object} [reqOpts]
  * @param {AbortSignal} [reqOpts.signal] - Passed to axios to allow cancellation
  * @param {number} [reqOpts.timeoutMs]
@@ -138,8 +141,7 @@ export async function scrapePage(
   containerEl.find(item).each((_i, el) => {
     const row = {};
     for (const field of fields) {
-      const text = $(el).find(field.selector).text().replace(/\s+/g, ' ').trim();
-      row[field.name] = text;
+      row[field.name] = extractFieldValue($, el, field, safeUrl.href);
     }
     items.push(row);
   });
@@ -163,10 +165,10 @@ export async function scrapePage(
 }
 
 /**
- * Parses a fields string like "title:.title, date:.date" into an array of {name, selector}.
+ * Parses a fields string like "title:.title, link:a@href" into field definitions.
  *
  * @param {string} fieldsStr
- * @returns {Array<{name: string, selector: string}>}
+ * @returns {Array<{name: string, selector: string, attribute?: string}>}
  */
 export function parseFields(fieldsStr) {
   return fieldsStr
@@ -176,16 +178,25 @@ export function parseFields(fieldsStr) {
     .map((pair) => {
       const colonIdx = pair.indexOf(':');
       if (colonIdx === -1) {
-        throw new Error(`Invalid field format: "${pair}". Expected "name:selector".`);
+        throw new Error(`Invalid field format: "${pair}". Expected "name:selector" or "name:selector@attribute".`);
       }
       const name = pair.slice(0, colonIdx).trim();
-      const selector = pair.slice(colonIdx + 1).trim();
-      if (!name || !selector) {
+      const selectorPart = pair.slice(colonIdx + 1).trim();
+      if (!name || !selectorPart) {
         throw new Error(`Invalid field format: "${pair}". Both name and selector are required.`);
       }
-      return {
-        name,
-        selector,
-      };
+      const attrMatch = selectorPart.match(FIELD_ATTR_SUFFIX);
+      if (attrMatch) {
+        const selector = attrMatch[1].trim();
+        const attribute = attrMatch[2];
+        if (!selector) {
+          throw new Error(`Invalid field format: "${pair}". Selector is required before @attribute.`);
+        }
+        return { name, selector, attribute };
+      }
+      if (selectorPart.includes('@')) {
+        throw new Error(`Invalid field format: "${pair}". Attribute name after @ must start with a letter.`);
+      }
+      return { name, selector: selectorPart };
     });
 }

@@ -11,10 +11,99 @@ test('parseFields parses valid field pairs', () => {
   ]);
 });
 
+test('parseFields parses selector@attribute pairs', () => {
+  const fields = parseFields('title:.title, link:a@href');
+  assert.deepEqual(fields, [
+    { name: 'title', selector: '.title' },
+    { name: 'link', selector: 'a', attribute: 'href' },
+  ]);
+});
+
 test('parseFields rejects missing colon, missing name, and missing selector', () => {
   assert.throws(() => parseFields('title .title'), /Invalid field format/);
   assert.throws(() => parseFields(':.title'), /Both name and selector are required/);
   assert.throws(() => parseFields('title:'), /Both name and selector are required/);
+  assert.throws(() => parseFields('url:@href'), /Selector is required before @attribute|Attribute name after @/);
+});
+
+test('scrapePage extracts text and @href from child and from item element', async () => {
+  const html = `
+    <div class="list">
+      <div class="card"><a class="inner" href="/child">Child</a></div>
+      <a class="grid-item" href="/self"><span class="title">Self</span></a>
+    </div>`;
+  const server = http.createServer((_req, res) => {
+    res.end(html);
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const base = `http://127.0.0.1:${port}/page`;
+
+  const childResult = await scrapePage(
+    base,
+    {
+      container: '.list',
+      item: '.card',
+      fields: [
+        { name: 'title', selector: 'a' },
+        { name: 'url', selector: 'a', attribute: 'href' },
+      ],
+    },
+    { allowPrivateNetwork: true },
+  );
+  assert.deepEqual(childResult.items, [
+    { title: 'Child', url: `http://127.0.0.1:${port}/child` },
+  ]);
+
+  const selfResult = await scrapePage(
+    base,
+    {
+      container: '.list',
+      item: '.grid-item',
+      fields: [
+        { name: 'title', selector: '.title' },
+        { name: 'url', selector: '.grid-item', attribute: 'href' },
+      ],
+    },
+    { allowPrivateNetwork: true },
+  );
+  assert.deepEqual(selfResult.items, [
+    { title: 'Self', url: `http://127.0.0.1:${port}/self` },
+  ]);
+
+  server.close();
+});
+
+test('scrapePage @href when list item is the anchor (compound selector fallback)', async () => {
+  const html = `
+    <ul class="job-offer-list">
+      <a class="job-offer-item job-offer-box" href="/jobs/1">
+        <span class="title">Role</span>
+      </a>
+    </ul>`;
+  const server = http.createServer((_req, res) => {
+    res.end(html);
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+
+  const result = await scrapePage(
+    `http://127.0.0.1:${port}/jobs`,
+    {
+      container: '.job-offer-list',
+      item: '.job-offer-item:not(.job-offer-item-breaker)',
+      fields: parseFields('name:.title, url:.job-offer-item a@href'),
+    },
+    { allowPrivateNetwork: true },
+  );
+  assert.deepEqual(result.items, [
+    {
+      name: 'Role',
+      url: `http://127.0.0.1:${port}/jobs/1`,
+    },
+  ]);
+
+  server.close();
 });
 
 test('scrapePage retries transient HTTP failures when configured', async () => {

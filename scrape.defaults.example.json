@@ -63,7 +63,7 @@
       "url": "http://books.toscrape.com/",
       "container": "ol.row",
       "item": "li article.product_pod",
-      "fields": "title:h3 a, price:p.price_color, availability:p.instock.availability",
+      "fields": "title:h3 a, link:h3 a@href, price:p.price_color, availability:p.instock.availability",
       "paginate": true,
       "strategy": "next-link",
       "nextSelector": "li.next a"
@@ -73,7 +73,7 @@
       "url": "https://news.ycombinator.com/",
       "container": "body",
       "item": "tr.athing",
-      "fields": "rankingNumber:.rank, title:.titleline > a",
+      "fields": "rankingNumber:.rank, title:.titleline > a, url:.titleline > a@href",
       "paginate": false
     },
     {

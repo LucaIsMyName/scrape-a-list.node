@@ -131,10 +131,10 @@
       </div>
       <div>
         <label for="fields" class="mb-1 block text-sm font-medium text-muted">
-          Fields <span class="font-normal">(name:selector pairs, comma-separated)</span>
+          Fields <span class="font-normal">(name:selector or name:selector@attr, comma-separated)</span>
         </label>
-        <input type="text" id="fields" placeholder="title:.event-title, date:.event-date, venue:.event-venue" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
-        <p class="mt-1 text-xs text-muted">Example: <code class="text-text/80">title:.title, date:.date, venue:.venue</code></p>
+        <input type="text" id="fields" placeholder="title:h3 a, link:h3 a@href, date:.event-date" class="w-full min-h-11 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm focus:border-accent focus:outline-none sm:min-h-0 sm:py-2" />
+        <p class="mt-1 text-xs text-muted">Example: <code class="text-text/80">title:.title, link:a@href</code> — <code class="text-text/80">@href</code> reads an attribute; omit <code class="text-text/80">@…</code> for text.</p>
       </div>
       <div>
         <label for="output" class="mb-1 block text-sm font-medium text-muted">

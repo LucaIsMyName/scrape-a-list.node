@@ -244,7 +244,16 @@ function validateFieldsClient(fieldsRaw) {
       return `Invalid field "${pair}". Expected "name:selector".`;
     }
     const name = pair.slice(0, colonIdx).trim();
-    const selector = pair.slice(colonIdx + 1).trim();
+    let selector = pair.slice(colonIdx + 1).trim();
+    const attrMatch = selector.match(/^(.+)@([A-Za-z][\w-]*)$/);
+    if (attrMatch) {
+      selector = attrMatch[1].trim();
+      if (!selector) {
+        return `Invalid field "${pair}". Selector is required before @attribute.`;
+      }
+    } else if (selector.includes('@')) {
+      return `Invalid field "${pair}". Attribute after @ must start with a letter.`;
+    }
     if (!name || !selector) {
       return `Invalid field "${pair}". Both name and selector are required.`;
     }

@@ -15,7 +15,7 @@
       "url": "https://www.diakonie.at/unsere-angebote-und-einrichtungen/liste",
       "container": ".facility-list",
       "item": ".card-item ",
-      "fields": "title:.title, subtitle:.subtitle, location:.location",
+      "fields": "title:.title, subtitle:.subtitle, location:.location, url:.title@href",
       "paginate": true,
       "strategy": "next-link",
       "nextSelector": "a.page-link.arrow-next"
@@ -25,7 +25,7 @@
       "url": "https://www.diakonie.at/jobplattform/offene-stellen",
       "container": ".job-offer-list",
       "item": ".job-offer-item:not(.job-offer-item-breaker)",
-      "fields": "name:.title, location:.location, hours:.hours",
+      "fields": "name:.title, location:.location, hours:.hours, url:a.job-offer-box@href",
       "paginate": true,
       "strategy": "next-link",
       "nextSelector": "a.page-link.arrow-next"
@@ -35,7 +35,7 @@
       "url": "https://www.diakonie.at/news-stories",
       "container": ".news-list",
       "item": ".news-item",
-      "fields": "name:.title, date:.date, kategorien:.news-label",
+      "fields": "name:.title, date:.date, kategorien:.news-label, url:a@href",
       "paginate": true,
       "strategy": "next-link",
       "nextSelector": "a.page-link.arrow-next"
@@ -45,7 +45,7 @@
       "url": "https://www.diakonie.at/spenden-und-unterstuetzen/freiwilliges-engagement/freiwilligenboerse",
       "container": ".job-offer-list",
       "item": ".job-offer-item",
-      "fields": "name:.job-title, location:.location",
+      "fields": "name:.job-title, location:.location, url:a@href",
       "paginate": true,
       "strategy": "next-link",
       "nextSelector": "a.page-link.arrow-next"
@@ -55,7 +55,7 @@
       "url": "https://www.diakonie.at/veranstaltungen",
       "container": ".event-overview-list",
       "item": ".grid-item",
-      "fields": "name:.title, subtitle:.subtitle, location:.location, date:.date-time-wrapper",
+      "fields": "name:.title, subtitle:.subtitle, location:.location, date:.date-time-wrapper, url:a@href",
       "paginate": true,
       "strategy": "next-link",
       "nextSelector": "a.page-link.arrow-next"
@@ -65,7 +65,7 @@
       "url": "https://www.diakonie.at/mediathek",
       "container": ".main-content",
       "item": ".media",
-      "fields": "name:.title, description:.text, category:.category-label",
+      "fields": "name:.title, description:.text, category:.category-label, url:a.download@href",
       "paginate": true,
       "strategy": "next-link",
       "nextSelector": "a.page-link.arrow-next"

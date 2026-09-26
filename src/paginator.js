@@ -1,4 +1,5 @@
 import { scrapePage, isAbortError } from './scraper.js';
+import { resolveAttrUrl } from './attrUrl.js';
 import { createHash } from 'node:crypto';
 
 const HARD_PAGE_LIMIT = 200;
@@ -10,16 +11,6 @@ function hashItems(items) {
 
 function uniq(values) {
   return [...new Set(values.filter(Boolean))];
-}
-
-function resolveAttrUrl(raw, currentUrl) {
-  const value = typeof raw === 'string' ? raw.trim() : '';
-  if (!value) return null;
-  try {
-    return new URL(value, currentUrl).href;
-  } catch {
-    return null;
-  }
 }
 
 function extractUrlFromElement($, candidate, currentUrl, preferredAttr = '') {

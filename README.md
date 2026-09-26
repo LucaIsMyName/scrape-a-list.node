@@ -72,7 +72,7 @@ The tool will interactively prompt you for:
 1. **Starting page URL** — the page containing the list
 2. **Container selector** — CSS selector for the list wrapper (e.g. `.concerts-list`)
 3. **Item selector** — CSS selector for each item inside the container (e.g. `.concert-card`)
-4. **Fields** — comma-separated `name:selector` pairs to extract from each item (e.g. `title:.title, date:.date, venue:.venue`)
+4. **Fields** — comma-separated `name:selector` pairs to extract from each item (e.g. `title:.title, date:.date, venue:.venue`). Append `@attribute` to read an HTML attribute instead of text (e.g. `link:h3 a@href`, or `url:.grid-item@href` when the list row element itself is the link). Relative `href`/`src` values are resolved against the page URL.
 5. **Pagination** — whether the list spans multiple pages
    - `next-link`: asks `nextSelector` plus optional `nextUrlSourceSelector`, `nextUrlAttribute`, `nextSiblingSelector`
    - `url-pattern`: asks `urlTemplate` and `maxPages`
