@@ -119,9 +119,9 @@
       "container": "body",
       "item": "tr.athing",
       "fields": "rankingNumber:.rank, title:.titleline > a, url:.titleline a@href",
-      "paginate": false,
+      "paginate": true,
       "strategy": "next-link",
-      "nextSelector": ""
+      "nextSelector": ".morelink"
     }
   ]
 }
