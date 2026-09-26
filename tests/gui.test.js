@@ -64,6 +64,49 @@ test('GET /api/download serves files under output with safe headers', async () =
   }
 });
 
+test('GET /api/preset?name= returns merged preset config', async () => {
+  const app = createApp({
+    loadConfig: () => ({
+      defaults: {
+        url: 'https://example.com/base',
+        container: '.list',
+        item: '.item',
+        fields: 'title:.t',
+      },
+      presets: [{ presetName: 'mine', url: 'https://example.com/mine' }],
+    }),
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/preset?name=${encodeURIComponent('mine')}`);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.presetName, 'mine');
+    assert.equal(body.config.url, 'https://example.com/mine');
+  }, app);
+});
+
+test('GET /api/presets/:name returns merged preset config', async () => {
+  const app = createApp({
+    loadConfig: () => ({
+      defaults: {
+        url: 'https://example.com/base',
+        container: '.list',
+        item: '.item',
+        fields: 'title:.t',
+      },
+      presets: [{ presetName: 'mine', url: 'https://example.com/mine' }],
+    }),
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/presets/mine`);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.presetName, 'mine');
+    assert.equal(body.config.url, 'https://example.com/mine');
+    assert.equal(body.config.container, '.list');
+  }, app);
+});
+
 test('GET /api/config returns defaults and presets payload', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/api/config`);

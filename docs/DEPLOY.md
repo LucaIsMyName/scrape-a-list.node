@@ -4,7 +4,7 @@ The public site is [https://scrape-a-list.lucamack.at](https://scrape-a-list.luc
 
 Apache is the only process on the public internet. It asks for a username and password, then proxies to the Node GUI on `127.0.0.1:3000`. The Node process is not reachable from outside the VPS.
 
-The GUI page loads **Tailwind CSS from** `https://cdn.tailwindcss.com` **in the browser** (not on the server). Users need normal outbound HTTPS from their device to style the page; scraping still runs on the VPS.
+The GUI page loads **Tailwind CSS from** `https://cdn.tailwindcss.com` **in the browser** (not on the server). Users need normal outbound HTTPS from their device to style the page; scraping still runs on the VPS. **Geist fonts** load from Google Fonts in the browser.
 
 ```text
 Browser
@@ -112,6 +112,23 @@ apache2ctl configtest
 systemctl reload apache2
 journalctl -u apache2 -n 50 --no-pager
 ```
+
+## Security and SSRF
+
+The Node app is an **HTTP fetch proxy** for whoever can reach it:
+
+- Production: only Apache (basic auth) can reach Node on `127.0.0.1:3000`.
+- Authenticated users can trigger scrapes of **public** `http`/`https` URLs from the VPS egress IP.
+
+Recommended production env for the `scrape-a-list` systemd unit:
+
+| Variable | Recommended |
+| --- | --- |
+| `ALLOW_PRIVATE_NETWORK_TARGETS` | `false` (default) — blocks scraping internal/metadata URLs |
+| `GUI_HOST` | `127.0.0.1` |
+| `MAX_CONCURRENT_JOBS` | `2` (or lower on small VPS) |
+
+Do not expose port 3000 on the firewall. Treat basic-auth credentials as **trusted operator** access, not public multi-tenant use.
 
 ## If the site does not come back
 

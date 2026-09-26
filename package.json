@@ -1,11 +1,23 @@
 {
   "name": "scrape-a-list.node",
-  "version": "2026.09.26.2",
+  "version": "2026.09.26.3",
   "description": "CLI web scraper that extracts any list from any website",
   "type": "module",
   "license": "MIT",
   "author": "LucaIsMyName",
+  "engines": {
+    "node": ">=20"
+  },
   "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./orchestrator": "./src/orchestrator.js",
+    "./scraper": "./src/scraper.js",
+    "./paginator": "./src/paginator.js",
+    "./csv": "./src/csv.js",
+    "./urlSafety": "./src/urlSafety.js",
+    "./config": "./src/config/loadScrapeConfig.js"
+  },
   "bin": {
     "scrape-a-list": "./index.js"
   },
@@ -14,7 +26,7 @@
     "gui": "node gui/server.js",
     "deploy": "bash scripts/deploy.sh",
     "test": "node --test",
-    "lint": "node --check index.js cli/index.js cli/prompts.js cli/loadConfig.js src/*.js tests/*.js gui/server.js gui/public/app.js",
+    "lint": "node --check index.js cli/index.js cli/prompts.js cli/loadConfig.js cli/allowPrivateNetwork.js src/lib/sleep.js src/config/loadScrapeConfig.js src/*.js tests/*.js gui/server.js gui/public/app.js",
     "ci:test": "npm run lint && npm test"
   },
   "dependencies": {

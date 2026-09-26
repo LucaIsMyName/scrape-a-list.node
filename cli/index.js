@@ -1,5 +1,11 @@
 import { askBaseQuestions, askPagination, askOutput, confirmSummary } from './prompts.js';
-import { loadScrapeDefaults, loadScrapeConfig, getEffectiveConfig } from './loadConfig.js';
+import {
+  loadScrapeDefaults,
+  loadScrapeConfig,
+  getEffectiveConfig,
+  validatePaginationConfig,
+} from '../src/config/loadScrapeConfig.js';
+import { resolveCliAllowPrivateNetwork } from './allowPrivateNetwork.js';
 import { runScrapeJob } from '../src/orchestrator.js';
 import { resolveOutputPath, writeCSV } from '../src/csv.js';
 
@@ -9,7 +15,7 @@ function missingRequiredFields(config) {
   return REQUIRED_PRESET_KEYS.filter((key) => !String(config[key] || '').trim());
 }
 
-export function resolveConfigForPreset(configData, presetName) {
+export function resolveConfigForPreset(configData, presetName, options = {}) {
   const config = getEffectiveConfig(configData, presetName);
   const missing = missingRequiredFields(config);
   if (missing.length) {
@@ -17,26 +23,31 @@ export function resolveConfigForPreset(configData, presetName) {
       `Preset "${presetName}" is missing required values after merge: ${missing.join(', ')}`,
     );
   }
+  validatePaginationConfig(config, { warnUnusedUrl: options.warnUnusedUrl !== false });
   return { ...config, output: resolveOutputPath(config.output) };
 }
 
 export async function run(options = {}) {
   console.log('\n  scrape-a-list — CLI Web Scraper\n');
 
+  const configPath = options.configPath ?? null;
+  const allowPrivateNetwork = resolveCliAllowPrivateNetwork(options);
+
   let config;
   let presetName = null;
   try {
     presetName = typeof options.preset === 'string' ? options.preset.trim() : null;
     if (presetName) {
-      const fullConfig = loadScrapeConfig();
+      const fullConfig = loadScrapeConfig(configPath);
       config = resolveConfigForPreset(fullConfig, presetName);
     } else {
-      const defaults = loadScrapeDefaults();
-      const base = await askBaseQuestions(defaults);
+      const defaults = loadScrapeDefaults(configPath);
+      const base = await askBaseQuestions(defaults, { allowPrivateNetwork });
       const pagination = await askPagination(defaults);
       const { output } = await askOutput(defaults);
       const outputPath = resolveOutputPath(output);
       config = { ...defaults, ...base, ...pagination, output: outputPath };
+      validatePaginationConfig(config, { warnUnusedUrl: true });
     }
   } catch (err) {
     console.error(`\n${err.message}\n`);
@@ -82,7 +93,7 @@ export async function run(options = {}) {
         console.log(`  Page ${page}: ${count} items`);
       },
       {
-        allowPrivateNetwork: true,
+        allowPrivateNetwork,
         onWarning: (warning) => {
           if (warning?.type === 'http-page-error') {
             console.warn(`  Warning: ${warning.message}`);

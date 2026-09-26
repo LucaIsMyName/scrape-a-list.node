@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseScrapeConfig, getEffectiveConfig } from '../cli/loadConfig.js';
+import {
+  parseScrapeConfig,
+  getEffectiveConfig,
+  validatePaginationConfig,
+} from '../src/config/loadScrapeConfig.js';
 
 test('parseScrapeConfig returns defaults and presets', () => {
   const config = parseScrapeConfig({
@@ -39,9 +43,18 @@ test('parseScrapeConfig returns defaults and presets', () => {
   assert.equal(config.defaults.retryDelayMs, 250);
   assert.equal(config.defaults.pageDelayMs, 100);
   assert.equal(config.defaults.failOnPageError, true);
-  assert.match(
-    config.defaults.output,
-    /^list-(\d{14}|\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})\.csv$/,
+  assert.match(config.defaults.output, /^list-\d{14}\.csv$/);
+});
+
+test('validatePaginationConfig requires urlTemplate for url-pattern', () => {
+  assert.throws(
+    () =>
+      validatePaginationConfig({
+        paginate: true,
+        strategy: 'url-pattern',
+        urlTemplate: '',
+      }),
+    /urlTemplate containing \{page\}/,
   );
 });
 

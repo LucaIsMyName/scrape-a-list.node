@@ -6,7 +6,13 @@ import { readFileSync } from 'node:fs';
 import { run } from './cli/index.js';
 
 function parseCliArgs(argv) {
-  const out = { preset: null, help: false, version: false };
+  const out = {
+    preset: null,
+    configPath: null,
+    allowPrivate: undefined,
+    help: false,
+    version: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--preset') {
@@ -16,6 +22,19 @@ function parseCliArgs(argv) {
       }
       out.preset = next;
       i += 1;
+      continue;
+    }
+    if (arg === '--config') {
+      const next = argv[i + 1];
+      if (!next || next.startsWith('--')) {
+        throw new Error('--config requires a file path');
+      }
+      out.configPath = next;
+      i += 1;
+      continue;
+    }
+    if (arg === '--allow-private') {
+      out.allowPrivate = true;
       continue;
     }
     if (arg === '--help' || arg === '-h') {
@@ -44,8 +63,14 @@ function printHelp() {
 
 Options:
   --preset <name>    Run a configured preset
+  --config <path>    Load scrape.defaults.json from this path (or SCRAPE_CONFIG_PATH)
+  --allow-private    Allow private/local network targets (overrides ALLOW_PRIVATE_NETWORK_TARGETS=false)
   --help, -h         Show this help message
-  --version, -v      Show version\n`);
+  --version, -v      Show version
+
+Environment:
+  ALLOW_PRIVATE_NETWORK_TARGETS   CLI default allows private targets unless set to "false"
+  SCRAPE_CONFIG_PATH              Default config file when --config is omitted\n`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

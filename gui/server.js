@@ -8,7 +8,11 @@ import { runScrapeJob } from '../src/orchestrator.js';
 import { parseFields, isAbortError } from '../src/scraper.js';
 import { validateTargetUrl } from '../src/urlSafety.js';
 import { resolveOutputPath, writeCSV } from '../src/csv.js';
-import { loadScrapeDefaults, loadScrapeConfig } from '../cli/loadConfig.js';
+import {
+  loadScrapeDefaults,
+  loadScrapeConfig,
+  getEffectiveConfig,
+} from '../src/config/loadScrapeConfig.js';
 
 function parseIntegerEnv(name, fallback, { min = Number.NEGATIVE_INFINITY } = {}) {
   const raw = process.env[name];
@@ -201,11 +205,20 @@ export function createApp(deps = {}) {
     next();
   });
   app.use(express.json());
-  app.use(express.static(PUBLIC_DIR));
 
-  app.get('/', (_req, res) => {
-    res.sendFile(join(PUBLIC_DIR, 'index.html'));
-  });
+  function respondWithPreset(req, res, rawName) {
+    try {
+      const config = readConfig();
+      const name = String(rawName || '').trim();
+      if (!name) {
+        return res.status(400).json({ error: 'Preset name is required.' });
+      }
+      const effective = getEffectiveConfig(config, name);
+      res.json({ presetName: name, config: effective });
+    } catch (err) {
+      res.status(404).json({ error: err.message || 'Preset not found.' });
+    }
+  }
 
   app.get('/api/defaults', (_req, res) => {
     try {
@@ -231,6 +244,15 @@ export function createApp(deps = {}) {
         presets: [],
       });
     }
+  });
+
+  app.get('/api/preset', (req, res) => {
+    const name = typeof req.query.name === 'string' ? req.query.name : '';
+    respondWithPreset(req, res, name);
+  });
+
+  app.get('/api/presets/:name', (req, res) => {
+    respondWithPreset(req, res, decodeURIComponent(req.params.name || ''));
   });
 
   // Step 1: validate config, create job, kick off scraping in background
@@ -382,6 +404,12 @@ export function createApp(deps = {}) {
     );
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     createReadStream(abs).pipe(res);
+  });
+
+  app.use(express.static(PUBLIC_DIR));
+
+  app.get('/', (_req, res) => {
+    res.sendFile(join(PUBLIC_DIR, 'index.html'));
   });
 
   return app;

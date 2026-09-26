@@ -328,7 +328,7 @@ function restoreFormFromStorage() {
     if (!raw) return false;
     const data = JSON.parse(raw);
     if (data.preset) $('preset').value = data.preset;
-    applyConfigToForm(getEffectiveConfigFromPreset(data.preset || ''), { fromStorage: data });
+    applyConfigToForm({}, { fromStorage: data });
     return true;
   } catch {
     return false;
@@ -409,13 +409,48 @@ function applyConfigToForm(d, options = {}) {
   updateAdvancedUI(Boolean(hasAdvanced));
 }
 
-function getEffectiveConfigFromPreset(presetName) {
+function mergePresetLocally(presetName) {
   const defaults = loadedConfig.defaults || {};
   if (!presetName) return { ...defaults };
   const selected = (loadedConfig.presets || []).find((p) => p.presetName === presetName);
-  if (!selected) return { ...defaults };
+  if (!selected) {
+    throw new Error(`Unknown preset "${presetName}".`);
+  }
   const { presetName: _ignored, ...presetValues } = selected;
   return { ...defaults, ...presetValues };
+}
+
+async function readJsonResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPresetConfig(presetName) {
+  const params = new URLSearchParams({ name: presetName });
+  const r = await fetch(`/api/preset?${params}`);
+  const data = await readJsonResponse(r);
+  if (data == null) {
+    return mergePresetLocally(presetName);
+  }
+  if (!r.ok) {
+    if (r.status === 404) {
+      return mergePresetLocally(presetName);
+    }
+    throw new Error(data.error || 'Could not load preset.');
+  }
+  return data.config;
+}
+
+async function applyPresetToForm(presetName) {
+  const config = presetName
+    ? await fetchPresetConfig(presetName)
+    : { ...(loadedConfig.defaults || {}) };
+  applyConfigToForm(config);
 }
 
 function populatePresetOptions() {
@@ -436,9 +471,11 @@ function populatePresetOptions() {
 async function loadDefaults() {
   try {
     const r = await fetch('/api/config');
-    const config = await r.json();
-    if (!r.ok) {
-      showConfigBanner(config.error || 'Could not load presets from the server.');
+    const config = await readJsonResponse(r);
+    if (config == null || !r.ok) {
+      showConfigBanner(
+        (config && config.error) || 'Could not load presets from the server.',
+      );
       return;
     }
     hideConfigBanner();
@@ -449,7 +486,7 @@ async function loadDefaults() {
     populatePresetOptions();
     const restored = restoreFormFromStorage();
     if (!restored) {
-      applyConfigToForm(getEffectiveConfigFromPreset(''));
+      applyConfigToForm(loadedConfig.defaults || {});
     }
   } catch {
     showConfigBanner('Could not load presets. Check that the server is running.');
@@ -551,15 +588,20 @@ for (const id of [
 }
 $('fail-on-page-error').addEventListener('change', scheduleSaveForm);
 
-$('preset').addEventListener('change', (e) => {
+$('preset').addEventListener('change', async (e) => {
   if (formDirty && !window.confirm('Replace your edits with this preset?')) {
     e.target.value = e.target.dataset.lastValue || '';
     return;
   }
   e.target.dataset.lastValue = e.target.value;
   formDirty = false;
-  applyConfigToForm(getEffectiveConfigFromPreset(e.target.value));
-  saveFormToStorage();
+  try {
+    await applyPresetToForm(e.target.value);
+    hideConfigBanner();
+    saveFormToStorage();
+  } catch (err) {
+    showConfigBanner(err.message);
+  }
 });
 
 scrapeBtn.addEventListener('click', async () => {

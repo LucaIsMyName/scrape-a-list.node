@@ -1,6 +1,7 @@
 import { scrapePage, isAbortError } from './scraper.js';
 import { resolveAttrUrl } from './attrUrl.js';
 import { createHash } from 'node:crypto';
+import { sleep } from './lib/sleep.js';
 
 const HARD_PAGE_LIMIT = 200;
 const COMMON_URL_ATTRS = ['href', 'data-href', 'data-url', 'data-next', 'data-next-url', 'value'];
@@ -81,31 +82,6 @@ function resolveNextUrl(
     return fallbackUrl;
   }
   return null;
-}
-
-async function sleep(ms, signal) {
-  if (!(ms > 0)) return;
-  await new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      const aborted = new Error('Request aborted');
-      aborted.name = 'AbortError';
-      aborted.code = 'ERR_CANCELED';
-      reject(aborted);
-      return;
-    }
-    const timer = setTimeout(() => {
-      signal?.removeEventListener?.('abort', onAbort);
-      resolve();
-    }, ms);
-    const onAbort = () => {
-      clearTimeout(timer);
-      const aborted = new Error('Request aborted');
-      aborted.name = 'AbortError';
-      aborted.code = 'ERR_CANCELED';
-      reject(aborted);
-    };
-    signal?.addEventListener?.('abort', onAbort, { once: true });
-  });
 }
 
 /**

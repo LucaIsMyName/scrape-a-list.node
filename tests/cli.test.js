@@ -25,6 +25,12 @@ test('parseCliArgs fails for unknown flags', () => {
   assert.throws(() => parseCliArgs(['--wat']), /Unknown argument: --wat/);
 });
 
+test('parseCliArgs reads --config and --allow-private', () => {
+  const args = parseCliArgs(['--config', './my.json', '--allow-private']);
+  assert.equal(args.configPath, './my.json');
+  assert.equal(args.allowPrivate, true);
+});
+
 test('resolveConfigForPreset throws when merged config is incomplete', () => {
   const parsed = parseScrapeConfig({
     url: '',

@@ -72,10 +72,10 @@
     },
     {
       "presetName": "Rockhouse Konzerte",
-      "url": "https://www.rockhouse.at/Veranstaltungen",
+      "url": "https://www.rockhouse.at/de/events",
       "container": "[aria-label='Veranstaltungen']",
       "item": "[aria-label='Veranstaltungen'] > li",
-      "fields": "dateAndLocation:time, artist:li h3",
+      "fields": "dateAndLocation:time, artist:li h3, url:a@href",
       "paginate": false,
       "strategy": "next-link",
       "nextSelector": "#calendar_navigation_bottom a#next_month",
@@ -108,7 +108,7 @@
       "url": "http://books.toscrape.com/",
       "container": "ol.row",
       "item": "li article.product_pod",
-      "fields": "title:h3 a, price:p.price_color, availability:p.instock.availability",
+      "fields": "title:h3 a, price:p.price_color, availability:p.instock.availability, url:a@href",
       "paginate": true,
       "strategy": "next-link",
       "nextSelector": "li.next a"
@@ -118,7 +118,7 @@
       "url": "https://news.ycombinator.com/",
       "container": "body",
       "item": "tr.athing",
-      "fields": "rankingNumber:.rank, title:.titleline > a",
+      "fields": "rankingNumber:.rank, title:.titleline > a, url:.titleline a@href",
       "paginate": false,
       "strategy": "next-link",
       "nextSelector": ""

@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import { extractFieldValue } from './extractField.js';
 import { extractImdbChartItems, isBotChallengeHtml } from './htmlFallbacks.js';
 import { createPublicLookup, validateTargetUrl } from './urlSafety.js';
+import { sleep } from './lib/sleep.js';
 
 const FIELD_ATTR_SUFFIX = /^(.+)@([A-Za-z][\w-]*)$/;
 
@@ -47,31 +48,6 @@ function isRetryableError(err) {
   if (typeof status === 'number' && RETRYABLE_STATUS_CODES.has(status)) return true;
   if (typeof err?.code === 'string' && RETRYABLE_NETWORK_CODES.has(err.code)) return true;
   return !err?.response;
-}
-
-async function sleep(ms, signal) {
-  if (!(ms > 0)) return;
-  await new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      const aborted = new Error('Request aborted');
-      aborted.name = 'AbortError';
-      aborted.code = 'ERR_CANCELED';
-      reject(aborted);
-      return;
-    }
-    const timer = setTimeout(() => {
-      signal?.removeEventListener?.('abort', onAbort);
-      resolve();
-    }, ms);
-    const onAbort = () => {
-      clearTimeout(timer);
-      const aborted = new Error('Request aborted');
-      aborted.name = 'AbortError';
-      aborted.code = 'ERR_CANCELED';
-      reject(aborted);
-    };
-    signal?.addEventListener?.('abort', onAbort, { once: true });
-  });
 }
 
 /**

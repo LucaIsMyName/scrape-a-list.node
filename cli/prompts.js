@@ -1,6 +1,9 @@
 import inquirer from 'inquirer';
+import { validateTargetUrl } from '../src/urlSafety.js';
+import { parseFields } from '../src/scraper.js';
 
-export async function askBaseQuestions(defaults) {
+export async function askBaseQuestions(defaults, options = {}) {
+  const allowPrivateNetwork = options.allowPrivateNetwork !== false;
   return inquirer.prompt([
     {
       type: 'input',
@@ -9,10 +12,10 @@ export async function askBaseQuestions(defaults) {
       default: defaults.url || undefined,
       validate: (v) => {
         try {
-          new URL(v);
+          validateTargetUrl(v, { allowPrivateNetwork });
           return true;
-        } catch {
-          return 'Please enter a valid URL (e.g. https://example.com/concerts)';
+        } catch (err) {
+          return err.message || 'Please enter a valid http(s) URL';
         }
       },
     },
@@ -36,12 +39,12 @@ export async function askBaseQuestions(defaults) {
       message: 'Fields to extract (comma-separated name:selector pairs):\n  e.g. title:.title, date:.date, venue:.venue\n ',
       default: defaults.fields || undefined,
       validate: (v) => {
-        const pairs = v.split(',').map((s) => s.trim()).filter(Boolean);
-        if (!pairs.length) return 'At least one field is required';
-        for (const pair of pairs) {
-          if (!pair.includes(':')) return `Invalid field "${pair}" — expected "name:selector"`;
+        try {
+          parseFields(v);
+          return true;
+        } catch (err) {
+          return err.message;
         }
-        return true;
       },
     },
   ]);
