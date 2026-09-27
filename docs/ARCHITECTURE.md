@@ -10,11 +10,12 @@
 | [`src/scraper.js`](../src/scraper.js) | HTTP fetch, Cheerio extraction, field parsing, retries. |
 | [`src/paginator.js`](../src/paginator.js) | Next-link and url-pattern pagination. |
 | [`src/csv.js`](../src/csv.js) | CSV serialization, output path jail, formula injection guard. |
+| [`src/outputQuota.js`](../src/outputQuota.js) | List/preview/delete jailed CSVs; prune oldest when over `OUTPUT_MAX_BYTES`. |
 | [`src/urlSafety.js`](../src/urlSafety.js) | http(s) only, block private/local hosts and DNS rebinding. |
 | [`src/htmlFallbacks.js`](../src/htmlFallbacks.js) | IMDb chart JSON-LD / `__NEXT_DATA__` when selectors match nothing. |
 | [`src/config/loadScrapeConfig.js`](../src/config/loadScrapeConfig.js) | Load and validate `scrape.defaults.json`. |
-| [`gui/server.js`](../gui/server.js) | Express API, SSE job progress, static UI. |
-| [`gui/public/`](../gui/public/) | HTML + client script. |
+| [`gui/server.js`](../gui/server.js) | Express API, SSE job progress, static UI from `gui/web/dist`. |
+| [`gui/web/`](../gui/web/) | Vite + React + TypeScript + Tailwind + shadcn UI. |
 
 ## Scrape pipeline
 
@@ -56,11 +57,13 @@ sequenceDiagram
 | Max pages (safety) | 200 | `paginator.js` |
 | Max redirects | 5 | `scraper.js` |
 
-## GUI assets and CDN
+## GUI assets
 
-The UI is static files under `gui/public/`. [`index.html`](../gui/public/index.html) loads **Tailwind CSS** from `https://cdn.tailwindcss.com` in the browser, with an inline `tailwind.config` mapping theme tokens to CSS variables on `[data-theme]`.
+The UI is a Vite + React app in [`gui/web/`](../gui/web/). Production builds land in `gui/web/dist/` and are served by Express. Tailwind is compiled into the bundle (no CDN). Theme tokens live in [`gui/web/src/index.css`](../gui/web/src/index.css); a small inline script in [`gui/web/index.html`](../gui/web/index.html) applies `scrape-a-list-theme` before paint.
 
-Fonts load from Google Fonts (Geist). Offline or locked-down networks may show unstyled layout or system fonts until CDN access is available.
+Geist fonts still load from Google Fonts. Offline or locked-down networks may fall back to system fonts.
+
+Development: `npm run gui:dev` runs Express on port 3000 and Vite on 5173 (proxies `/api`). Production: `npm run gui:build` then `npm run gui`.
 
 ## Programmatic use
 

@@ -1,8 +1,16 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve, normalize, relative, isAbsolute, basename } from 'node:path';
+import { dirname, join, resolve, basename } from 'node:path';
 import { createReadStream, existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import {
+  deleteOutputCsv,
+  listOutputCsvFiles,
+  parseOutputMaxBytes,
+  previewOutputCsv,
+  pruneOutputDir,
+  resolveJailedOutputPath,
+} from '../src/outputQuota.js';
 
 import { runScrapeJob } from '../src/orchestrator.js';
 import { parseFields, isAbortError } from '../src/scraper.js';
@@ -23,7 +31,8 @@ function parseIntegerEnv(name, fallback, { min = Number.NEGATIVE_INFINITY } = {}
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PUBLIC_DIR = join(__dirname, 'public');
+const PUBLIC_DIR = join(__dirname, 'web', 'dist');
+const PUBLIC_INDEX = join(PUBLIC_DIR, 'index.html');
 const OUTPUT_DIR = resolve(__dirname, '..', 'output');
 const PORT = parseIntegerEnv('PORT', 3000, { min: 0 });
 const HOST = process.env.GUI_HOST || '127.0.0.1';
@@ -39,6 +48,7 @@ const SCRAPE_FAIL_ON_PAGE_ERROR = process.env.SCRAPE_FAIL_ON_PAGE_ERROR === 'tru
 const MAX_JOB_EVENTS = parseIntegerEnv('MAX_JOB_EVENTS', 1_000, { min: 1 });
 const JOB_TTL_MS = parseIntegerEnv('JOB_TTL_MS', 10 * 60 * 1000, { min: 1 });
 const MAX_CONCURRENT_JOBS = parseIntegerEnv('MAX_CONCURRENT_JOBS', 2, { min: 1 });
+const OUTPUT_MAX_BYTES = parseOutputMaxBytes(process.env.OUTPUT_MAX_BYTES);
 
 const VALID_STRATEGIES = new Set(['next-link', 'url-pattern']);
 
@@ -198,6 +208,8 @@ export function createApp(deps = {}) {
   const readConfig = deps.loadConfig ?? loadScrapeConfig;
   const jobStore = deps.jobs ?? jobs;
   const maxConcurrent = deps.maxConcurrentJobs ?? MAX_CONCURRENT_JOBS;
+  const outputDir = deps.outputDir ?? OUTPUT_DIR;
+  const outputMaxBytes = deps.outputMaxBytes ?? OUTPUT_MAX_BYTES;
   const app = express();
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -384,14 +396,61 @@ export function createApp(deps = {}) {
     });
   });
 
+  function sendOutputError(res, err) {
+    if (err.code === 'ERR_OUTPUT_MISSING') return res.status(400).json({ error: err.message });
+    if (err.code === 'ERR_OUTPUT_JAIL' || err.code === 'ERR_OUTPUT_TYPE') {
+      return res.status(403).json({ error: err.message });
+    }
+    if (err.code === 'ENOENT') return res.status(404).json({ error: 'File not found.' });
+    return res.status(500).json({ error: err.message || 'Output error.' });
+  }
+
+  app.get('/api/outputs', async (_req, res) => {
+    try {
+      await pruneOutputDir(outputDir, outputMaxBytes);
+      const files = await listOutputCsvFiles(outputDir);
+      const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+      res.json({
+        files,
+        totalBytes,
+        limitBytes: outputMaxBytes,
+      });
+    } catch (err) {
+      sendOutputError(res, err);
+    }
+  });
+
+  app.get('/api/outputs/preview', async (req, res) => {
+    const file = typeof req.query.file === 'string' ? req.query.file : '';
+    try {
+      const preview = await previewOutputCsv(file, outputDir, 20);
+      res.json(preview);
+    } catch (err) {
+      sendOutputError(res, err);
+    }
+  });
+
+  app.delete('/api/outputs', async (req, res) => {
+    const file =
+      (typeof req.body?.file === 'string' && req.body.file) ||
+      (typeof req.query.file === 'string' ? req.query.file : '');
+    try {
+      const name = await deleteOutputCsv(file, outputDir);
+      res.json({ ok: true, name });
+    } catch (err) {
+      sendOutputError(res, err);
+    }
+  });
+
   app.get('/api/download', (req, res) => {
     const file = typeof req.query.file === 'string' ? req.query.file : '';
     if (!file) return res.status(400).json({ error: 'file query param required.' });
 
-    const abs = normalize(resolve(file));
-    const rel = relative(OUTPUT_DIR, abs);
-    if (!rel || rel.startsWith('..') || isAbsolute(rel)) {
-      return res.status(403).json({ error: 'Access denied.' });
+    let abs;
+    try {
+      abs = resolveJailedOutputPath(file, outputDir);
+    } catch (err) {
+      return sendOutputError(res, err);
     }
 
     if (!existsSync(abs)) return res.status(404).json({ error: 'File not found.' });
@@ -409,13 +468,25 @@ export function createApp(deps = {}) {
   app.use(express.static(PUBLIC_DIR));
 
   app.get('/', (_req, res) => {
-    res.sendFile(join(PUBLIC_DIR, 'index.html'));
+    if (!existsSync(PUBLIC_INDEX)) {
+      res
+        .status(503)
+        .type('text/plain')
+        .send('GUI build not found. Run `npm run gui:build` first, or use `npm run gui:dev`.');
+      return;
+    }
+    res.sendFile(PUBLIC_INDEX);
   });
 
   return app;
 }
 
 export function startServer() {
+  if (!existsSync(PUBLIC_INDEX)) {
+    console.error(
+      'GUI build not found. Run `npm run gui:build` first, or use `npm run gui:dev` for development.',
+    );
+  }
   const app = createApp();
   app.listen(PORT, HOST, () => {
     const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;

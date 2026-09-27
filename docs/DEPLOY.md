@@ -4,7 +4,7 @@ The public site is [https://scrape-a-list.lucamack.at](https://scrape-a-list.luc
 
 Apache is the only process on the public internet. It asks for a username and password, then proxies to the Node GUI on `127.0.0.1:3000`. The Node process is not reachable from outside the VPS.
 
-The GUI page loads **Tailwind CSS from** `https://cdn.tailwindcss.com` **in the browser** (not on the server). Users need normal outbound HTTPS from their device to style the page; scraping still runs on the VPS. **Geist fonts** load from Google Fonts in the browser.
+The GUI is a prebuilt React bundle (`gui/web/dist`). Tailwind is compiled into that bundle. **Geist fonts** still load from Google Fonts in the browser. Scraping runs on the VPS.
 
 ```text
 Browser
@@ -46,12 +46,13 @@ npm run deploy
 
 That command:
 
-1. Copies the repo to `/opt/scrape-a-list` with `rsync`.
-2. Runs `npm ci --omit=dev` on the server.
-3. Restarts the `scrape-a-list` systemd service.
-4. Checks that `http://127.0.0.1:3000/` answers on the VPS.
+1. Builds the React GUI locally (`npm run gui:build` → `gui/web/dist`).
+2. Copies the repo to `/opt/scrape-a-list` with `rsync` (includes the built `gui/web/dist`).
+3. Runs `npm ci --omit=dev` on the server (Express/scraper only; no Vite).
+4. Restarts the `scrape-a-list` systemd service.
+5. Checks that `http://127.0.0.1:3000/` answers on the VPS.
 
-It does not touch Apache, the TLS certificate, the password file, or CSV files already in `/opt/scrape-a-list/output/`. `node_modules`, `output/`, and `.git` are not uploaded.
+It does not touch Apache, the TLS certificate, the password file, or CSV files already in `/opt/scrape-a-list/output/`. `node_modules`, `output/`, and `.git` are not uploaded. The VPS does not run a frontend build.
 
 A running scrape is cancelled by the restart, and its in-memory job is gone. Finished CSV files on disk stay.
 
@@ -127,6 +128,7 @@ Recommended production env for the `scrape-a-list` systemd unit:
 | `ALLOW_PRIVATE_NETWORK_TARGETS` | `false` (default) — blocks scraping internal/metadata URLs |
 | `GUI_HOST` | `127.0.0.1` |
 | `MAX_CONCURRENT_JOBS` | `2` (or lower on small VPS) |
+| `OUTPUT_MAX_BYTES` | `2147483648` (2 GiB). Oldest CSVs in `output/` are deleted when the folder exceeds this. |
 
 Do not expose port 3000 on the firewall. Treat basic-auth credentials as **trusted operator** access, not public multi-tenant use.
 

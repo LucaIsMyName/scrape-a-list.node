@@ -80,13 +80,16 @@ Result: `output/list-20260505143045.csv` (timestamp varies).
 ## Web GUI
 
 ```bash
-npm run gui
+npm run gui:dev    # Express API + Vite (http://127.0.0.1:5173)
+npm run gui:build  # production bundle → gui/web/dist
+npm run gui        # serve the built UI at http://127.0.0.1:3000
 ```
 
-The UI uses Tailwind CSS via CDN in the browser.
+The GUI is a React + Tailwind + shadcn app. Progress streams over SSE; download CSV when done. **Advanced** fields map to `SCRAPE_*` env vars ([`.env.example`](.env.example)).
 
-Opens [http://127.0.0.1:3000](http://127.0.0.1:3000). Progress streams over SSE; download CSV when done. **Advanced** fields map to `SCRAPE_*` env vars ([`.env.example`](.env.example)).
-
+- **Fields:** add/remove name + selector + optional attribute rows (still sent as `name:selector` / `name:selector@attr`).
+- **Output files:** browse, preview, download, or delete CSVs in `output/`. Oldest files are removed automatically if the folder exceeds `OUTPUT_MAX_BYTES` (default 2 GiB).
+- **History:** recent runs stay in this browser; download works while the CSV is still on the server.
 - **Stop:** cancels the job; no CSV written for that run.
 - **Presets:** server-merged config via `/api/presets/:name`.
 - **Security:** blocks private/local URLs unless `ALLOW_PRIVATE_NETWORK_TARGETS=true`.

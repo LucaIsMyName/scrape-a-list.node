@@ -13,7 +13,7 @@ Project-specific instructions for AI agents and contributors.
 
 1. **Interactive CLI scrape:** `npm run start` → Inquirer prompts → `runScrapeJob` → `output/*.csv`
 2. **Preset CLI scrape:** `npm run start -- --preset NAME` (non-interactive after summary)
-3. **GUI scrape:** `npm run gui` → POST `/api/scrape` → SSE progress → download CSV
+3. **GUI scrape:** `npm run gui:dev` (or `gui:build` + `npm run gui`) → POST `/api/scrape` → SSE progress → download CSV
 4. **Deploy:** `./scripts/deploy.sh` (see [docs/DEPLOY.md](docs/DEPLOY.md))
 
 ## Folder layout
@@ -23,7 +23,7 @@ cli/           Prompts, CLI run loop, thin re-export of config
 src/           Core scraper (no Inquirer/Express)
   config/      scrape.defaults.json loading and validation
   lib/         Shared helpers (e.g. sleep)
-gui/           Express server + static UI
+gui/           Express server + React UI (`web/` source, `web/dist` build)
 tests/         node:test suites
 docs/          CONFIG, ARCHITECTURE, API, LIMITATIONS, DEPLOY
 ```
@@ -40,6 +40,8 @@ npm run lint
 npm test
 npm run ci:test
 npm run start
+npm run gui:dev
+npm run gui:build
 npm run gui
 ```
 

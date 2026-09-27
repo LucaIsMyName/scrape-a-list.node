@@ -2,6 +2,7 @@ import { Parser } from 'json2csv';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseOutputMaxBytes, pruneOutputDir } from './outputQuota.js';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -106,5 +107,6 @@ export async function writeCSV(items, filePath) {
   await mkdir(dirname(target), { recursive: true });
   const csv = toCSV(items);
   await writeFile(target, csv, 'utf-8');
+  await pruneOutputDir(DEFAULT_OUTPUT_DIR, parseOutputMaxBytes(process.env.OUTPUT_MAX_BYTES));
   return target;
 }

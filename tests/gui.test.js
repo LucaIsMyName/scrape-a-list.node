@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFile, rm } from 'node:fs/promises';
+import { writeFile, rm, mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { createApp } from '../gui/server.js';
 
@@ -136,21 +137,62 @@ test('GET /api/config returns explicit 500 payload when config load fails', asyn
   );
 });
 
-test('GET / serves preset selector in GUI markup', async () => {
+test('GET / serves the built React GUI shell', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/`);
     assert.equal(response.status, 200);
     const html = await response.text();
-    assert.match(html, /id="preset"/);
-    assert.match(html, /id="next-url-source-selector"/);
-    assert.match(html, /cdn\.tailwindcss\.com/);
-    assert.match(html, /id="retry-attempts"/);
-    assert.match(html, /src="\/app\.js"/);
-    assert.match(html, /id="theme-toggle"/);
-    assert.match(html, /id="theme-icon-sun"/);
-    assert.match(html, /id="theme-icon-moon"/);
+    assert.match(html, /id="root"/);
     assert.match(html, /scrape-a-list-theme/);
+    assert.doesNotMatch(html, /cdn\.tailwindcss\.com/);
+    assert.doesNotMatch(html, /src="\/app\.js"/);
   });
+});
+
+test('GET /api/outputs lists CSV files in the output directory', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'scrape-outputs-'));
+  const file = join(dir, 'listed.csv');
+  await writeFile(file, 'name\nluca\n', 'utf8');
+  try {
+    const app = createApp({ outputDir: dir, outputMaxBytes: 1024 * 1024 });
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/outputs`);
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.equal(body.files.length, 1);
+      assert.equal(body.files[0].name, 'listed.csv');
+      assert.equal(typeof body.totalBytes, 'number');
+      assert.equal(body.limitBytes, 1024 * 1024);
+    }, app);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('DELETE /api/outputs removes a jailed CSV and rejects traversal', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'scrape-outputs-del-'));
+  const file = join(dir, 'gone.csv');
+  await writeFile(file, 'name\nluca\n', 'utf8');
+  try {
+    const app = createApp({ outputDir: dir, outputMaxBytes: 1024 * 1024 });
+    await withServer(async (baseUrl) => {
+      const blocked = await fetch(`${baseUrl}/api/outputs?file=${encodeURIComponent(resolve('tmp-outside.csv'))}`, {
+        method: 'DELETE',
+      });
+      assert.equal(blocked.status, 403);
+
+      const removed = await fetch(`${baseUrl}/api/outputs`, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ file }),
+      });
+      assert.equal(removed.status, 200);
+      const body = await removed.json();
+      assert.equal(body.name, 'gone.csv');
+    }, app);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test('GET /api/health returns ok', async () => {

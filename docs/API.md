@@ -94,9 +94,27 @@ Server-Sent Events stream. Each message is JSON in `data:`:
 
 Aborts the job. 409 if already finished.
 
+### `GET /api/outputs`
+
+Lists CSV files in `output/` after applying the storage quota. Response:
+
+```json
+{ "files": [{ "name": "list-….csv", "path": "/abs/path", "size": 123, "mtimeMs": 1 }], "totalBytes": 123, "limitBytes": 2147483648 }
+```
+
+### `GET /api/outputs/preview?file=`
+
+Returns the first 20 rows of a jailed CSV (`headers`, `rows`, `truncated`).
+
+### `DELETE /api/outputs`
+
+Body `{ "file": "<path>" }` (or `?file=`). Deletes one CSV under `output/`. 403 on traversal.
+
 ### `GET /api/download?file=`
 
 Downloads a CSV under `output/`. Path traversal returns 403.
+
+`OUTPUT_MAX_BYTES` (default 2 GiB) caps the combined size of CSVs in `output/`. After each write (and when listing files) the oldest CSVs are deleted until the folder is under the limit.
 
 ---
 

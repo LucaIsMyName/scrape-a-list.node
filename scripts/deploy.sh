@@ -14,6 +14,9 @@ fi
 
 SSH=(ssh -i "$DEPLOY_SSH_KEY" -o BatchMode=yes "$DEPLOY_HOST")
 
+echo "Building GUI"
+(cd "$ROOT" && npm run gui:build)
+
 echo "Deploying $ROOT to $DEPLOY_HOST:$DEPLOY_APP_DIR"
 
 rsync -az --delete \
