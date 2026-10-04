@@ -1,11 +1,9 @@
-import { useEffect, useRef } from 'react';
 import { Minus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ResultTable } from '@/components/ResultTable';
 import { cn } from '@/lib/utils';
-import type { DialogMode, JobPhase, LogLine, PreviewRow } from '@/lib/types';
+import type { DialogMode, JobPhase, PreviewRow } from '@/lib/types';
 
 type ScrapeDialogProps = {
   mode: DialogMode;
@@ -13,7 +11,6 @@ type ScrapeDialogProps = {
   title: string;
   lastPage: number | null;
   totalItems: number;
-  logLines: LogLine[];
   resultCount: number;
   preview: PreviewRow[];
   canStop: boolean;
@@ -37,7 +34,6 @@ export function ScrapeDialog({
   title,
   lastPage,
   totalItems,
-  logLines,
   resultCount,
   preview,
   canStop,
@@ -47,12 +43,6 @@ export function ScrapeDialog({
   onStop,
   onDownload,
 }: ScrapeDialogProps) {
-  const logEndRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ block: 'end' });
-  }, [logLines]);
-
   const showResult = phase === 'done' && resultCount > 0;
 
   return (
@@ -66,7 +56,7 @@ export function ScrapeDialog({
     >
       <SheetContent
         showClose={false}
-        className="sm:max-w-2xl"
+        className="overflow-hidden pb-4 sm:max-w-2xl"
         aria-busy={scraping}
         onPointerDownOutside={(event) => {
           if (scraping) {
@@ -84,7 +74,7 @@ export function ScrapeDialog({
           if (scraping) event.preventDefault();
         }}
       >
-        <SheetHeader className="pr-2">
+        <SheetHeader className="shrink-0 pr-2">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -96,7 +86,9 @@ export function ScrapeDialog({
                   Page {lastPage} · {totalItems} item{totalItems !== 1 ? 's' : ''} total
                 </SheetDescription>
               ) : (
-                <SheetDescription className="sr-only">Scrape progress</SheetDescription>
+                <SheetDescription>
+                  {scraping ? 'Scraping in progress…' : 'Scrape progress'}
+                </SheetDescription>
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1">
@@ -129,39 +121,8 @@ export function ScrapeDialog({
           </div>
         </SheetHeader>
 
-        <ScrollArea className="mx-6 min-h-[120px] rounded-md border border-border bg-background">
-          <div aria-live="polite" aria-label="Scrape log" className="px-3 py-2 font-mono text-xs leading-relaxed">
-            {logLines.map((line) => (
-              <div
-                key={line.id}
-                className={cn(
-                  'whitespace-pre',
-                  line.kind === 'success' && 'font-medium text-success-foreground',
-                  line.kind === 'error' && 'font-medium text-destructive-foreground',
-                  line.kind === 'warn' && 'font-medium text-warning-foreground',
-                  line.kind === 'info' && 'text-muted-foreground',
-                  line.kind === 'page' && 'text-muted-foreground',
-                )}
-              >
-                {line.kind === 'page' ? (
-                  <>
-                    {'  Page '}
-                    <span className="text-primary">{line.page}</span>
-                    {': '}
-                    <span className="text-foreground">{line.count}</span>
-                    {` item${line.count !== 1 ? 's' : ''}`}
-                  </>
-                ) : (
-                  line.text
-                )}
-              </div>
-            ))}
-            <div ref={logEndRef} />
-          </div>
-        </ScrollArea>
-
         {showResult ? (
-          <div className="flex min-h-0 flex-1 flex-col border-t border-border">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-border">
             <ResultTable count={resultCount} preview={preview} onDownload={onDownload} />
           </div>
         ) : null}

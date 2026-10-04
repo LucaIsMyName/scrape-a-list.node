@@ -113,7 +113,6 @@ export function App() {
         title={job.title}
         lastPage={job.lastPage}
         totalItems={job.totalItems}
-        logLines={job.logLines}
         resultCount={job.resultCount}
         preview={job.preview}
         canStop={job.canStop}
